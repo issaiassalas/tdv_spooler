@@ -475,8 +475,8 @@ QPushButton {
                 <string/>
                </property>
                <property name="icon">
-                <iconset>
-                 <normaloff>:/assets/assets/subdirectory_arrow_left.svg</normaloff>:/assets/assets/subdirectory_arrow_left.svg</iconset>
+                <iconset resource="../images.qrc">
+                 <normaloff>:/img/assets/printer2.png</normaloff>:/img/assets/printer2.png</iconset>
                </property>
               </widget>
              </item>
@@ -534,7 +534,7 @@ QPushButton {
              <item row="3" column="1">
               <widget class="QLabel" name="label_8">
                <property name="text">
-                <string>OPCIONES</string>
+                <string>IMPRIMIR Z</string>
                </property>
               </widget>
              </item>

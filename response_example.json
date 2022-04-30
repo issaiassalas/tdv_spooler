@@ -1,0 +1,35 @@
+[
+    {
+        "name": "INV/2022/00003",
+        "id": 3,
+        "ticket_ref": 0,
+        "num_report_z": 0,
+        "fp_serial_num": "",
+        "type": "out_invoice",
+        "partner_id": {
+            "name": "Deco Addict",
+            "id": 10,
+            "street": "77 Santa Barbara Rd",
+            "phone": "(603)-996-3829",
+            "email": "deco.addict82@example.com",
+            "vat": false
+        },
+        "payment": [],
+        "payment_state": "not_paid",
+        "invoice_line_ids": [
+            {
+                "name": "[FURN_8999] Three-Seat Sofa\nThree Seater Sofa with Lounger in Steel Grey Colour",
+                "price_unit": 1500.0,
+                "product_qty": 5.0,
+                "tax_ids": [{ "name": "Exento (ventas)", "amount": 0.0 }]
+            },
+            {
+                "name": "[FURN_8220] Four Person Desk\nFour person modern office workstation", 
+                "price_unit": 2350.0, 
+                "product_qty": 5.0, 
+                "tax_ids": [{ "name": "Exento (ventas)", "amount": 0.0 }]
+            }
+        ],
+        "amount_total": 19250.0
+    }
+]

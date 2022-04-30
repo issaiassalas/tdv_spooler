@@ -1,3 +1,4 @@
+from PyQt5.QtCore import QMutex
 from .model_selector import model_selector
 from .thcontroller import TDVHKAController
 from time import sleep
@@ -22,12 +23,27 @@ class PrinterController(object):
     __metaclass__ = Singleton
 
     def __init__(self, port:str='COM4', baudrate:int=9600, model:str=''):
-        self.printer_formatter = model_selector(model)
+        self._model = model
+        self.printer_formatter = model_selector(self._model)
         self.printer_controller = TDVHKAController()
         self._port = port
         self._baudrate = baudrate
         self._is_connected = False
-        self.is_busy = False
+        self._is_busy = False
+        self.mutex = QMutex()
+
+    @property
+    def is_busy(self):
+        self.mutex.lock()
+        busy = self._is_busy
+        self.mutex.unlock()
+        return busy
+
+    @is_busy.setter
+    def is_busy(self, busy):
+        self.mutex.lock()
+        self._is_busy = busy
+        self.mutex.unlock()
 
     @property
     def trace(self):
@@ -52,12 +68,67 @@ class PrinterController(object):
             if resp:
                 self._is_connected = False
 
+    def print_report_x(self, progress=None):
+        progress.emit('Imprimiendo Reporte X')
+        self.printer_formatter = model_selector(self._model)
+        self.is_busy = True
+        self.printer_formatter.report_x()
+        self.printer_controller.send_cmds(self.trace)
+        sleep(3)
+        self.is_busy = False
+
+    def print_report_z(self, progress=None):
+        progress.emit('Imprimiendo Reporte Z')
+        self.printer_formatter = model_selector(self._model)
+        self.is_busy = True
+        self.printer_formatter.report_z()
+        self.printer_controller.send_cmds(self.trace)
+        sleep(3)
+        self.is_busy = False
+
     def print_programation(self, progress=None):
         progress.emit('Imprimiendo Programacion')
+        self.printer_formatter = model_selector(self._model)
         self.is_busy = True
         self.printer_formatter.print_programation()
         self.printer_controller.send_cmds(self.trace)
         sleep(3)
+        self.is_busy = False
+
+    def credit_note(self, progress=None, db_invoice=None, **kwargs):
+        progress.emit('Imprimiendo Nota de credito')
+        self.is_busy = True
+        self.printer_formatter.credit_note(
+            document=db_invoice.ticket_ref,
+            serial=db_invoice.fp_serial_num,
+            date=db_invoice.fp_serial_date,
+            **kwargs
+        )
+        self.printer_controller.send_cmds(self.trace)
+        status_s1 = self.get_s1()
+        db_invoice.cn_ticket_ref = status_s1.get('last_nc_number', 0)
+        db_invoice.num_report_z = status_s1.get('daily_closure_counter', 0) + 1
+        db_invoice.fp_serial_num = status_s1.get('registered_machine_number')
+        db_invoice.fp_serial_date = status_s1.get('current_printer_date')
+        db_invoice.state = 'DONE'
+        db_invoice.save()
+        self.is_busy = False
+
+    def custom_invoice(self, progress=None, db_invoice=None,**kwargs):
+        progress.emit('Imprimiendo factura')
+        self.printer_formatter = model_selector(self._model)
+        self.is_busy = True
+        self.printer_formatter.custom_invoice(**kwargs)
+        self.printer_controller.send_cmds(self.trace)
+        status_s1 = self.get_s1()
+        db_invoice.ticket_ref = status_s1.get('last_invoice_number', 0)
+        db_invoice.cn_ticket_ref = status_s1.get('last_nc_number', 0)
+        db_invoice.num_report_z = status_s1.get('daily_closure_counter', 0) + 1
+        db_invoice.fp_serial_num = status_s1.get('registered_machine_number')
+        db_invoice.fp_serial_date = status_s1.get('current_printer_date')
+        db_invoice.state = 'DONE'
+        db_invoice.save()
+
         self.is_busy = False
 
     def get_state(self, state: str= 'S1'):
@@ -68,5 +139,4 @@ class PrinterController(object):
 
     def get_s1(self, *args, **kwargs):
         report = self.get_state(state='S1')
-        # print(self.printer_formatter.get_state(state='S1', trama=report))
-        print(report)
+        return self.printer_formatter.get_state(state='S1', trama=report)

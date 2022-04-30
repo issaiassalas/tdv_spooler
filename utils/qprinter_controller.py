@@ -15,19 +15,21 @@ class QPrinterController(QObject):
             bind_function:PrinterController=None,
             parent=None,
             lock=False,
+            bind_dict={},
             **kwargs):
         super().__init__(*args, **kwargs)
         self.bind_function = bind_function
+        self.bind_dict = bind_dict
         self.parent = parent
         self.lock = lock
         self.hash = str(hash(datetime.now()))
 
     def call_binded_function(self):
         try:
-            self.bind_function(progress=self.progress)
-        except Exception as e:
-            self.disconected.emit(str(e))
-            sleep(.5)
+            self.bind_function(progress=self.progress, **self.bind_dict)
+        # except Exception as e:
+        #     self.disconected.emit(str(e))
+        #     sleep(.5)
         finally:
             self.finished.emit()
 

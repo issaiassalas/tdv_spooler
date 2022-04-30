@@ -1,10 +1,16 @@
 import time
 import datetime
-from .MethodHelper import MethodHelper
 
-class TDVHKAFormatter:
+class Printer(object):
     def __init__(self):
-        self.printer = MethodHelper()
+        self.commands = []
+
+    def SendCmd(self, cmd):
+        self.commands.append(cmd)
+
+class RigazsaFormatter:
+    def __init__(self):
+        self.printer = Printer()
 
     def printer_trace(self):
         return self.printer.commands

@@ -52,8 +52,12 @@ class S1PrinterData(PrinterData):
 
             self._setCurrentPrinterTime(_printerTime)
             self._setCurrentPrinterDate(_printerDate)
-            self._setLastNCNumber(int(properties[12]))
-            self._setQuantityOfNCToday(int(properties[13]))
+            if len(properties) <= 13:
+                self._setLastNCNumber(0)
+                self._setQuantityOfNCToday(0)
+            else:
+                self._setLastNCNumber(int(properties[12]))
+                self._setQuantityOfNCToday(int(properties[13]))
         else:
             self._setCashierNumber(properties[0][2:])
             self._setTotalDailySales(Util.doDouble(properties[1]))

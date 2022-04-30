@@ -248,7 +248,7 @@ class Ui_MainWindow(object):
         self.print_z = QtWidgets.QPushButton(self.frame_6)
         self.print_z.setText("")
         icon5 = QtGui.QIcon()
-        icon5.addPixmap(QtGui.QPixmap(":/assets/assets/subdirectory_arrow_left.svg"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
+        icon5.addPixmap(QtGui.QPixmap(":/img/assets/printer2.png"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
         self.print_z.setIcon(icon5)
         self.print_z.setObjectName("print_z")
         self.gridLayout.addWidget(self.print_z, 3, 0, 1, 1)
@@ -467,7 +467,7 @@ class Ui_MainWindow(object):
         self.main_label.setText(_translate("MainWindow", "MAIN"))
         self.label_6.setText(_translate("MainWindow", "CONEXIONES"))
         self.label_7.setText(_translate("MainWindow", "IMPRIMIR X"))
-        self.label_8.setText(_translate("MainWindow", "OPCIONES"))
+        self.label_8.setText(_translate("MainWindow", "IMPRIMIR Z"))
         self.label_9.setText(_translate("MainWindow", "ALARMAS"))
         self.outputText.setHtml(_translate("MainWindow", "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.0//EN\" \"http://www.w3.org/TR/REC-html40/strict.dtd\">\n"
 "<html><head><meta name=\"qrichtext\" content=\"1\" /><style type=\"text/css\">\n"

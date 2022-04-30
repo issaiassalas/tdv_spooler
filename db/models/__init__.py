@@ -7,7 +7,20 @@ class BaseModel(Model):
         database = db
 
 class Invoice(BaseModel):
-    name = CharField(unique=True)
+    '''
+        Odoo invoice db model
+    '''
+    ref_id = IntegerField() # should be unique
+    name = CharField()
+    ticket_ref = IntegerField()
+    cn_ticket_ref = IntegerField()
+    num_report_z = IntegerField()
+    fp_serial_num = CharField()
+    fp_serial_date = CharField()
+    invoice_type = CharField() #in_invoice, out_invoice
+    state = CharField() #PENDING, PROCESSING, DONE, FAILED, SENT
+    data = TextField() #should save a JSON
+    amount_total = FloatField()
 
 class User(BaseModel):
     url = CharField()
