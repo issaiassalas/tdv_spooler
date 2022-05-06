@@ -205,6 +205,14 @@ class MainWindow(QMainWindow, Ui_main_window.Ui_MainWindow):
             )
             self.queue_thread(pcontroller)
 
+    def test_action(self):
+        if self.is_printer_connected:
+            pcontroller = QPrinterController(
+                bind_function=self._printer.nf_document,
+                parent=self
+            )
+            self.queue_thread(pcontroller)
+
     def queue_thread(self, pcontroller):
         self.mutex.lock()
         self._thread_pool[pcontroller.hash] = pcontroller
@@ -236,6 +244,7 @@ class MainWindow(QMainWindow, Ui_main_window.Ui_MainWindow):
         self.connection_button.clicked.connect(self.refresh_ports)
         self.print_x.clicked.connect(self.print_x_report)
         self.print_z.clicked.connect(self.print_z_report)
+        self.test_button.clicked.connect(self.test_action)
         self.exit_button.clicked.connect(self.exit_fiscal_printer)
         self.header_frame.mouseMoveEvent = self.move_window
         self.toggle_menu_button.clicked.connect(self.toggle_menu)

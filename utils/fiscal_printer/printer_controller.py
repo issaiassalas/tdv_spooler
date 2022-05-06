@@ -1,6 +1,6 @@
 from PyQt5.QtCore import QMutex
 from .model_selector import model_selector
-from .thcontroller import TDVHKAController
+from .thcontroller import FPPrinterController
 from time import sleep
 import serial
 
@@ -25,7 +25,7 @@ class PrinterController(object):
     def __init__(self, port:str='COM4', baudrate:int=9600, model:str=''):
         self._model = model
         self.printer_formatter = model_selector(self._model)
-        self.printer_controller = TDVHKAController()
+        self.printer_controller = FPPrinterController()
         self._port = port
         self._baudrate = baudrate
         self._is_connected = False
@@ -82,7 +82,7 @@ class PrinterController(object):
         self.printer_formatter = model_selector(self._model)
         self.is_busy = True
         self.printer_formatter.report_z()
-        self.printer_controller.send_cmds(self.trace)
+        print(self.printer_controller.send_cmds(self.trace))
         sleep(3)
         self.is_busy = False
 
@@ -131,6 +131,22 @@ class PrinterController(object):
 
         self.is_busy = False
 
+    def reprint_document(self, progress=None, db_invoice=None,**kwargs):
+        progress.emit('Reimprimiendo Documento')
+        self.printer_formatter = model_selector(self._model)
+        self.is_busy = True
+        self.printer_formatter.reprint_document(
+            ref = db_invoice.ticket_ref \
+                if db_invoice.invoice_type == 'out_invoice' \
+                else db_invoice.cn_ticket_ref,
+            document_type = db_invoice.invoice_type
+        )
+        self.printer_controller.send_cmds(self.trace)
+        db_invoice.state = 'DONE'
+        db_invoice.save()
+
+        self.is_busy = False
+
     def get_state(self, state: str= 'S1'):
         self.is_busy = True
         response = self.printer_controller.get_state(state=state)
@@ -140,3 +156,15 @@ class PrinterController(object):
     def get_s1(self, *args, **kwargs):
         report = self.get_state(state='S1')
         return self.printer_formatter.get_state(state='S1', trama=report)
+
+
+    def nf_document(self, progress=None,**kwargs):
+        progress.emit('Imprimiendo factura')
+        self.printer_formatter = model_selector(self._model)
+        self.is_busy = True
+        self.printer_formatter.nf_document(**kwargs)
+        print(self.printer_controller.send_cmds(self.trace))
+        status_s1 = self.get_s1()
+        print(status_s1)
+
+        self.is_busy = False

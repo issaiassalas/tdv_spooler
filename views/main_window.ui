@@ -493,7 +493,7 @@ QPushButton {
                </property>
                <property name="icon">
                 <iconset resource="../images.qrc">
-                 <normaloff>:/img/assets/Navigation/apps.svg</normaloff>:/img/assets/Navigation/apps.svg</iconset>
+                 <normaloff>:/img/assets/Device/graphic_eq.svg</normaloff>:/img/assets/Device/graphic_eq.svg</iconset>
                </property>
                <property name="autoDefault">
                 <bool>false</bool>
@@ -507,13 +507,13 @@ QPushButton {
               </widget>
              </item>
              <item row="4" column="0">
-              <widget class="QPushButton" name="pushButton_9">
+              <widget class="QPushButton" name="test_button">
                <property name="text">
                 <string/>
                </property>
                <property name="icon">
-                <iconset>
-                 <normaloff>:/assets/assets/access_alarms.svg</normaloff>:/assets/assets/access_alarms.svg</iconset>
+                <iconset resource="../images.qrc">
+                 <normaloff>:/img/assets/Device/wallpaper.svg</normaloff>:/img/assets/Device/wallpaper.svg</iconset>
                </property>
               </widget>
              </item>
@@ -541,7 +541,7 @@ QPushButton {
              <item row="4" column="1">
               <widget class="QLabel" name="label_9">
                <property name="text">
-                <string>ALARMAS</string>
+                <string>PRUEBA IMPRESION</string>
                </property>
               </widget>
              </item>

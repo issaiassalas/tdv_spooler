@@ -1,4 +1,5 @@
-from printer_line import PrinterLine
+from ..base_formatter import BaseFormatter
+from .printer_line import PrinterLine
 
 import time
 import datetime
@@ -10,7 +11,7 @@ class Printer(object):
     def SendCmd(self, cmd):
         self.commands.append(cmd)
 
-class RigazsaFormatter:
+class RigazsaFormatter(BaseFormatter):
     '''Rigazsa Fiscal printer tramas formatter'''
     def __init__(self):
         self.printer = Printer()
@@ -33,23 +34,39 @@ class RigazsaFormatter:
             **kwargs
         )
 
+    def send_line(self, *args, **kwargs):
+        self.new_line(*args, **kwargs).send()
+
     def printer_trace(self):
         return self.printer.commands
 
     def print_programation(self):
-        self.printer.SendCmd("D")
+        self.new_sequence()
+        self.send_line(
+            command = chr(0x4D),
+            fields = ['S']
+        )
 
     def send_cmd(self, cmd):
         self.printer.SendCmd(cmd)
 
     def cancel_current(self):
-        self.printer.SendCmd('7')
+        self.send_line(
+            command = chr(0x44),
+            fields = [
+                'Cancelar Factura', '000', 'C', 'E'
+            ]
+        )
 
     def invoice(self, products: list = [], payments: list = []):
         # Factura sin Personalizar*
         self.print_invoice_products(products)
         self.print_subtotal()
         self.process_payment(payments=payments)
+        self.send_line(
+            command = chr(0x45),
+            fields = ['E']
+        )
 
     def custom_invoice(self,
                    client: dict = {},
@@ -58,38 +75,53 @@ class RigazsaFormatter:
         self.new_sequence()
         self.print_client_data(client=client)
         
-        # return self.invoice(products=products, payments=payments)
+        return self.invoice(products=products, payments=payments)
 
     def cancelled_invoice(self, client: dict = {}, products: list = []):
+        self.new_sequence()
         self.print_client_data(client=client)
         self.print_invoice_products(products)
-        self.printer.SendCmd(str("7"))
+        # self.print_subtotal()
+        self.cancel_current()
 
     def nf_document(self):
         # Documento No Fiscal
-        self.printer.SendCmd(str("80$Documento de Prueba"))
-        self.printer.SendCmd(str("80¡Esto es un documento de texto"))
-        self.printer.SendCmd(str("80!Es un documento no fiscal"))
-        self.printer.SendCmd(str("80*Es bastante util y versatil"))
-        self.printer.SendCmd(str("810Fin del Documento no Fiscal"))
+        self.new_sequence()
+        self.send_line(
+            command = chr(0x48)
+        )
+        self.send_line(
+            command = chr(0x49),
+            fields = ['Esto es un documento no fiscal']
+        )
+        self.send_line(
+            command = chr(0x4A)
+        )
+        # self.printer.SendCmd(str("80$Documento de Prueba"))
+        # self.printer.SendCmd(str("80¡Esto es un documento de texto"))
+        # self.printer.SendCmd(str("80!Es un documento no fiscal"))
+        # self.printer.SendCmd(str("80*Es bastante util y versatil"))
+        # self.printer.SendCmd(str("810Fin del Documento no Fiscal"))
 
     def credit_note(self, 
                     client: dict = {}, 
                     products: list = [], 
                     document: int = 0, 
-                    serial: str = '', 
-                    date: str = '',
+                    serial: str = 'xxxZSerialxxx', 
+                    date: str = '22/12/1980',
                     payments: list = []
             ):
-        invoice = self.format_units(unit=document, unit_type='invoice')
-        self.printer.SendCmd(f'iF*{invoice}')
-        self.printer.SendCmd(f'iD*{date}')
-        self.printer.SendCmd(f'iI*{serial}')
-        self.print_client_data(client=client)
-        self.print_invoice_products(products=products, invoice_type='out_refund')
-        self.print_subtotal()
-        self.process_payment(payments=payments)
-        # self.printer.SendCmd('101')
+        self.new_sequence()
+        self.print_client_data(
+            client = client,
+            credit_note = {
+                3: str(document),
+                4: serial,
+                5: date,
+                7: 'D'
+            }
+        )
+        self.invoice(products=products, payments=payments)
 
     def reprint_invoices(self):
         n_ini = self.reimp_ini.value()
@@ -103,81 +135,87 @@ class RigazsaFormatter:
             endString = "0" + endString
         self.printer.SendCmd("RF" + starString + endString)
 
-    def print_client_data(self, client={}):
-        personal_counter = 0
+    def print_client_data(self, client={}, credit_note={}):
         cr = client.get('ced_rif')[:12]
         name = client.get('name')[:30]
-        address = client.get('street')
-        phone = client.get('phone')
+        address = client.get('street')[:33]
+        phone = client.get('phone')[:34]
 
-        self.new_line(
+        self.send_line(
             command = chr(0x40),
-            fields = [name, cr],
+            fields = {
+                1: name, 
+                2: cr,
+                **credit_note
+            },
             limit = 9
-        ).send()
+        )
         if address:
-            self.new_line(
+            self.send_line(
                 command = chr(0x41),
                 fields = [f'Direccion: {address}', ''],
-            ).send()
+            )
         if phone:
-            self.printer.SendCmd(f'i0{personal_counter}Telefono: {phone}')
-            personal_counter += 1
+            self.send_line(
+                command = chr(0x41),
+                fields = [f'Telefono: {phone}', ''],
+            )
+
+    def cut_papper(self):
+        self.send_line(
+            command = chr(0x4B),
+        )
+
+    def advance_papper(self):
+        self.send_line(
+            command = chr(0x50)
+        )
+
+    def open_casher(self, casher = 1):
+        self.send_line(
+            command = {
+                1: chr(0x7B),
+                2: chr(0x7C)
+            }.get(casher)
+        )
 
     def format_units(self, unit: float = 0, unit_type: str = 'price'):
-        total = ''
         if unit_type == 'price':
-            total = str(round(10000000000 + unit * 100))[1:]
+            return str(round(unit * 100))
         elif unit_type == 'quantity':
-            total = str(round(100000000 + unit * 1000))[1:]
-        elif unit_type == 'invoice':
-            total = str(100000000000 + unit)[1:]
+            return str(round(unit * 1000))
         elif unit_type == 'payment':
-            total = str(round(1000000000000 + unit * 100))[1:]
+            return str(round(unit * 100))
         elif unit_type == 'reprint':
-            total = str(10000000 + int(unit))[1:]
-        return total
+            return str(10000000 + int(unit))[1:]
 
-    def get_tax_type(self, tax: int = 0, invoice_type='out_invoice'):
-        if invoice_type in ['OUT_INVOICE', 'out_invoice']:
-            if tax == 1:
-                return '!'
-            elif tax == 2:
-                return '"'
-            elif tax == 3:
-                return '#'
-            elif tax == 0:
-                return ' '
-        elif invoice_type in ['OUT_REFUND', 'out_refund']:
-            if tax == 1:
-                return 'd1'
-            elif tax == 2:
-                return 'd2'
-            elif tax == 3:
-                return 'd3'
-            elif tax == 0:
-                return 'd0'
+    def get_tax_type(self, tax: int = 0):
+        return { 
+            0: 'E', 1: 'G', 2: 'R', 3: 'A'
+        }.get(tax, 'E')
 
-    def print_invoice_products(self,
-                         products: list = [],
-                         invoice_type: str = 'out_invoice',
-                         DEBUG: bool = False):
-        response = []
+    def print_invoice_products(self, products: list = []):
         for product in products:
-            line = ''
-            line += self.get_tax_type(product.get('tax'),
-                                    invoice_type=invoice_type)
-            line += self.format_units(unit=product.get('price_unit'),
-                                     unit_type='price')
-            line += self.format_units(unit=product.get('product_qty'),
-                                     unit_type='quantity')
-            line += product.get('name')[:33]
-            if not DEBUG:
-                self.printer.SendCmd(line)
-                time.sleep(0.1)
-            response.append(line)
-
-        return response
+            quantity = self.format_units(
+                unit=product.get('product_qty'),
+                unit_type='quantity'
+            )
+            price = self.format_units(
+                unit=product.get('price_unit'),
+                unit_type='price'
+            )
+            tax = self.get_tax_type(product.get('tax'))
+            self.send_line(
+                command = chr(0x42),
+                fields = [
+                    product.get('name', 'xxx')[:15],
+                    quantity,
+                    price,
+                    tax,
+                    'M'
+                ],
+                limit = 8
+            )
 
     def reprint_last_invoice(self):
         self.printer.SendCmd('RU00000000000000')
@@ -189,29 +227,56 @@ class RigazsaFormatter:
         self.printer.SendCmd(cmd)
 
     def print_subtotal(self):
-        self.printer.SendCmd('3')
+        self.send_line(
+            command = chr(0x43),
+            limit = 2
+        )
 
     def get_lazy_status(self, status):
         time.sleep(1)
         return self.get_state(status)
 
-    def pay(self, payment: dict = {}, code: str = '1'):
-        cmd = code + str(100 + payment.get('id', 1))[1:]
-        if code == '2':
-            cmd += self.format_units(unit=payment.get('amount', 0.0), unit_type='payment')
+    def send_fiscal_text(self, text):
+        self.send_line(
+            command = chr(0x41),
+            fields = [
+                text
+            ]
+        )
 
-        self.printer.SendCmd(cmd)
+    def pay(self, payment: dict = {}):
+        payment_amount = self.format_units(
+            unit=payment.get('amount', 0.0),
+            unit_type = 'payment'
+        )
+        payment_id = payment.get('id')
+        if type(payment_id) != str:
+            payment_id = 'Efectivo'
+
+        self.send_fiscal_text(
+            f'{payment_id}: {payment_amount}'
+        )
+
 
     def process_payment(self, payments: list = []):
         if not payments or len(payments) == 0:
-            self.printer.SendCmd('7')
-        elif len(payments) == 1:
-            self.pay(payment=payments[0])
+            self.cancel_current()
         else:
             for payment in payments:
-                self.pay(payment=payment, code='2')
+                self.pay(payment=payment)
 
-    def reprint_document(self, ref: int = 0):
+    def reprint_document(self, ref: int = 0, document_type: str = 'out_invoice'):
+        str_ref = str(ref)
+        final_document = document_type
+        if document_type == 'out_invoice':
+            final_document = 'F'
+        elif document_type == 'out_refund':
+            final_document = 'C'
+        self.send_line(
+            command = chr(0x3D),
+            fields = [str_ref, str_ref, final_document]
+        )
+
         f_ref = self.format_units(unit=ref, unit_type='reprint')
         self.printer.SendCmd(f'RF{f_ref}{f_ref}')
 
@@ -246,7 +311,7 @@ class RigazsaFormatter:
 
     def report_x(self):
         self.new_sequence()
-        line = self.new_line(
+        self.send_line(
             command = chr(0x39),
             fields = [
                 chr(0x58), 
@@ -254,11 +319,10 @@ class RigazsaFormatter:
             ],
             separator_ends = True
         )
-        line.send()
 
     def report_z(self):
         self.new_sequence()
-        line = self.new_line(
+        self.send_line(
             command = chr(0x39),
             fields = [
                 chr(0x5A), 
@@ -266,16 +330,7 @@ class RigazsaFormatter:
             ],
             separator_ends = True
         )
-        line.send()
 
-if __name__ == '__main__':
-    rf = RigazsaFormatter()
-    rf.custom_invoice(
-        client = {
-            'name': 'Desarrollador 1',
-            'ced_rif': 'xxxxxxxx',
-            'street': 'Puerto Ordaz'
-        }
-    )
-    for trama in rf.printer_trace():
-        print(f'"{trama}"')
+    def __str__(self):
+        return '\n'.join(f'"{trama}"' for trama in self.printer_trace())
+

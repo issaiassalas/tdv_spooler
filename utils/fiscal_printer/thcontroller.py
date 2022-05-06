@@ -6,10 +6,8 @@ import operator
 import time
 
 
-class TFBase:
-    '''
-      TFHKA base class with connection to ports
-    '''
+class FPPrinter:
+    '''TFHKA base class with connection to ports'''
 
     def __init__(self):
         self.ctrlFlag = False
@@ -18,16 +16,8 @@ class TFBase:
         self.message = ''
         self.error = ''
 
-# Funcion ABRIR
-    def OpenFpctrl(self, **kwargs):
-        '''
-            try to open the selected port with COM3 setup and return if is successfull
-
-            params: 
-                port: int
-
-            returns: bool
-        '''
+    def OpenFpctrl(self, **kwargs) -> bool:
+        '''try to open the selected port and return if is successfull'''
         if not self.ctrlFlag:
             try:
                 self.ser = serial.Serial(**kwargs)
@@ -38,29 +28,18 @@ class TFBase:
                 self.message = f"Impresora no conectada o error accediendo al puerto {kwargs.get('port')}"
                 return False
 
-# Funcion CERRAR
-    def CloseFpctrl(self):
-        '''
-            Closes the current port and return the inner flag
-
-            returns: bool
-        '''
+    def CloseFpctrl(self) -> bool:
+        '''Closes the current port and return the inner flag'''
         if self.ctrlFlag:
             self.ser.close()
             self.ctrlFlag = False
             return self.ctrlFlag
 
-    def getState(self, state):
+    def getState(self, state) -> dict:
         return self._States(state)
 
-# Funcion MANIPULA
     def _HandleCTSRTS(self):
-        '''
-            handles the try of using RTS protocol
-            and return the CTS status as bool
-
-            returns: bool
-        '''
+        '''handles the try of using RTS protocol and return the CTS status as bool'''
         try:
             self.ser.setRTS(True)
             lpri = 1
@@ -74,126 +53,96 @@ class TFBase:
         except serial.SerialException:
             return False
 
-    def SendCmd(self, cmd):
-        '''
-            return a cmd response
+    def SendCmd(self, cmd) -> str:
+        '''return a cmd response'''
 
-            params:
-                cmd: str
-
-            returns: str or bool
-        '''
         if cmd in ["I0X", "I1X", "I1Z"]:
-            self.trama = self._States_Report(cmd, 4)
-            return self.trama
+            return self._States_Report(cmd, 4)
         if cmd == "I0Z":
-            self.trama = self._States_Report(cmd, 9)
-            return self.trama
+            return self._States_Report(cmd, 9)
         else:
             try:
                 self.ser.flushInput()
                 self.ser.flushOutput()
                 if self._HandleCTSRTS():
-                    msj = self._AssembleQueryToSend(cmd)
-                    self._write(msj)
-                    rt = self._read(1)
+                    msg = self._AssembleQueryToSend(cmd)
+                    self._write(msg)
+                    rt = self._read(self.ser.in_waiting or 1)
                     if rt == chr(0x06):
                         self.message = "Status: 00  Error: 00"
-                        rt = True
                     else:
                         self.message = "Status: 00  Error: 89"
-                        rt = False
+                        rt = ''
                 else:
                     self._GetStatusError(0, 128)
                     self.message = "Error... CTS in False"
-                    rt = False
+                    rt = ''
                 self.ser.setRTS(False)
             except serial.SerialException:
-                rt = False
+                rt = ''
             return rt
 
     def SendCmdFile(self, f):
         '''
             sends cmd file format
         '''
-        for linea in f:
-            if (linea != ""):
-                self.SendCmd(linea)
+        for line in f:
+            if (line != ""):
+                self.SendCmd(line)
 
-    def _QueryCmd(self, cmd, modify=True):
-        '''
-            sends query to cmd if is valid
-
-            params:
-                cmd: str
-
-            returns: bool
-        '''
+    def _QueryCmd(self, cmd:str, modify=True) -> bool:
+        '''sends query to cmd if is valid'''
         try:
             self.ser.flushInput()
             self.ser.flushOutput()
             if self._HandleCTSRTS():
-                msj = cmd
+                msg = cmd
                 if modify:
-                    msj = self._AssembleQueryToSend(cmd)
-                self._write(msj)
-                rt = True
+                    msg = self._AssembleQueryToSend(cmd)
+                self._write(msg)
+                rt = chr(0x06)
             else:
                 self._GetStatusError(0, 128)
                 self.message = "Error... CTS in False"
-                rt = False
+                rt = chr(0X15)
                 self.ser.setRTS(False)
         except serial.SerialException:
-            rt = False
+            rt = chr(0X15)
         return rt
 
-    def _FetchRow(self):
-        '''
-            retrieves msj from cmd if any
-
-            returns: str or None
-        '''
+    def _FetchRow(self) -> str:
+        '''retrieves msg from cmd if any'''
         while True:
-            time.sleep(2)
-            bytes = self.ser.inWaiting()
+            time.sleep(1/2)
+            bytes = self.ser.in_waiting
             if bytes <= 1:
-                break
-            msj = (self._read(bytes)).decode('utf-8')
-            linea = msj[1:-1]
-            lrc = chr(self._Lrc(linea))
+                return self._read(1)
+            msg = (self._read(bytes)).decode('utf-8')
+            lrc = self._Lrc(msg[1:-1])
             if lrc:
                 self.ser.flushInput()
                 self.ser.flushOutput()
-                return msj
+                return msg
             else:
-                break
-        return None
+                return ''
 
-    def _FetchRow_Report(self, r):
-        '''
-            get rows in the given time if any
-
-            params:
-                r: int
-
-            returns: str or None
-        '''
+    def _FetchRow_Report(self, r:int) -> str:
+        '''get rows in the given time if any'''
         while True:
             time.sleep(r)
             bytes = self.ser.inWaiting()
             if bytes > 0:
-                msj = self._read(bytes)
-                linea = msj
-                lrc = chr(self._Lrc(linea))
-                if lrc == msj:
+                msg = self._read(bytes)
+                line = msg
+                lrc = self._Lrc(line)
+                if lrc == msg:
                     self.ser.flushInput()
                     self.ser.flushOutput()
-                    return msj
+                    return msg
                 else:
-                    return msj
+                    return msg
             else:
-                break
-        return None
+                return ''
 
     def ReadFpStatus(self):
         '''
@@ -202,8 +151,8 @@ class TFBase:
             returns: ErrorInterface
         '''
         if self._HandleCTSRTS():
-            msj = chr(0x05)
-            self._write(msj)
+            msg = chr(0x05)
+            self._write(msg)
             time.sleep(0.05)
             r = self._read(5)
             if len(r) == 5:
@@ -216,180 +165,107 @@ class TFBase:
         else:
             return self._GetStatusError(0, 128)
 
-    def _write(self, msj):
-        '''
-            write in the opened serial port
+    def _write(self, msg:str):
+        '''write in the opened serial port'''
+        self.ser.write(msg.encode())
 
-            params:
-                msj: str
-        '''
-        self.ser.write(msj.encode())
+    def _read(self, bytes:int) -> str:
+        '''read the response of the serial port'''
+        return self.ser.read(bytes)
 
-    def _read(self, bytes):
-        '''
-            read the response of the serial port
+    def _AssembleQueryToSend(self, line:str) -> str:
+        '''concats the given params to respective format'''
+        data = line + chr(0x03)
+        return chr(0x02)+data+self._Lrc(data)
 
-            params:
-                bytes: int
+    def _Lrc(self, line:str) -> str:
+        '''calculate block check character'''
+        return chr(reduce(operator.xor, map(ord, str(line))))
 
-            returns: str
-        '''
-        msj = self.ser.read(bytes)
-        return msj
-
-    def _AssembleQueryToSend(self, linea):
-        '''
-            concats the given params to respective format
-
-            params:
-                linea: str
-
-            returns: str
-        '''
-        lrc = self._Lrc(linea+chr(0x03))
-        previo = chr(0x02)+linea+chr(0x03)+chr(lrc)
-        return previo
-
-    def _Lrc(self, linea):
-        '''
-            format the given line
-
-            params:
-                linea: str
-
-            returns: str
-        '''
-        return reduce(operator.xor, map(ord, str(linea)))
-
-    def _Debug(self, linea):
-        '''
-            debugs the given line
-
-            params:
-                linea: str
-
-            returns: str
-        '''
-        if linea != None:
-            if len(linea) == 0:
+    def _Debug(self, line:str) -> str:
+        '''debugs the given line'''
+        if line != '':
+            if len(line) == 0:
                 return 'null'
-            if len(linea) > 3:
-                lrc = linea[-1]
-                linea = linea[0:-1]
+            if len(line) > 3:
+                lrc = line[-1]
+                line = line[0:-1]
                 adic = ' LRC('+str(ord(lrc))+')'
             else:
                 adic = ''
-            linea = linea.replace('STX', chr(0x02), 1)
-            linea = linea.replace('ENQ', chr(0x05), 1)
-            linea = linea.replace('ETX', chr(0x03), 1)
-            linea = linea.replace('EOT', chr(0x04), 1)
-            linea = linea.replace('ACK', chr(0x06), 1)
-            linea = linea.replace('NAK', chr(0x15), 1)
-            linea = linea.replace('ETB', chr(0x17), 1)
+            line = line.replace('STX', chr(0x02), 1)
+            line = line.replace('ENQ', chr(0x05), 1)
+            line = line.replace('ETX', chr(0x03), 1)
+            line = line.replace('EOT', chr(0x04), 1)
+            line = line.replace('ACK', chr(0x06), 1)
+            line = line.replace('NAK', chr(0x15), 1)
+            line = line.replace('ETB', chr(0x17), 1)
 
-        return linea+adic
+        return line+adic
 
-    def _States(self, cmd):
-        '''
-            get trama setup
-
-            params: 
-                cmd: str
-
-            returns: str or None
-        '''
+    def _States(self, cmd:str) -> str:
+        '''get trama setup'''
         self._QueryCmd(cmd)
-        while True:
-            trama = self._FetchRow()
-            if trama == None:
-                break
-            return trama
+        return self._FetchRow()
 
-    def _States_Report(self, cmd, r):
-        '''
-            cmd reports
-
-            params:
-                cmd: str
-                r: int
-
-            returns: str or None
-        '''
-        ret = r
+    def _States_Report(self, cmd:str, r:int) -> str:
+        '''cmd reports'''
         self._QueryCmd(cmd)
-        while True:
-            trama = self._FetchRow_Report(ret)
-            if trama == None:
-                break
-            return trama
+        return self._FetchRow_Report(r)
 
-    def _UploadDataReport(self, cmd):
-        '''
-            uploads data to cmd
-
-            params:
-                cmd: str
-
-            returns: str or None
-        '''
+    def _UploadDataReport(self, cmd:str) -> str:
+        '''uploads data to cmd'''
         try:
             self.ser.flushInput()
             self.ser.flushOutput()
             if self._HandleCTSRTS():
-                msj = 1
-                msj = self._AssembleQueryToSend(cmd)
-                self._write(msj)
+                msg = 1
+                msg = self._AssembleQueryToSend(cmd)
+                self._write(msg)
                 rt = self._read(1)
                 while rt == chr(0x05):
                     rt = self._read(1)
-                    if rt != None:
+                    if rt != '':
                         time.sleep(0.05)
-                        msj = self._Debug('ACK')
-                        self._write(msj)
+                        msg = self._Debug('ACK')
+                        self._write(msg)
                         time.sleep(0.05)
-                        msj = self._FetchRow()
-                        return msj
+                        msg = self._FetchRow()
+                        return msg
                     else:
                         self._GetStatusError(0, 128)
                         self.message = "Error... CTS in False"
-                        rt = None
+                        rt = ''
                         self.ser.setRTS(False)
         except serial.SerialException:
-            rt = None
+            rt = ''
             return rt
 
-    def _ReadFiscalMemoryByNumber(self, cmd):
-        '''
-            reads the fiscal memory at the given cmd params
-
-            params:
-                cmd: str
-
-            returns: [str] or None
-        '''
-        msj = ""
-        arreglodemsj = []
+    def _ReadFiscalMemoryByNumber(self, cmd:str) -> str:
+        '''reads the fiscal memory at the given cmd params'''
+        msg = ""
+        msg_list = []
         counter = 0
         try:
             self.ser.flushInput()
             self.ser.flushOutput()
             if self._HandleCTSRTS():
                 m = ""
-                msj = self._AssembleQueryToSend(cmd)
-                self._write(msj)
+                msg = self._AssembleQueryToSend(cmd)
+                self._write(msg)
                 rt = self._read(1)
                 while True:
-                    while msj != chr(0x04):
+                    while msg != chr(0x04):
                         time.sleep(0.5)
-                        msj = self._Debug('ACK')
-                        self._write(msj)
+                        msg = self._Debug('ACK')
+                        self._write(msg)
                         time.sleep(0.5)
-                        msj = self._FetchRow_Report(1.3)
-                        if(msj == None):
+                        msg = self._FetchRow_Report(1.3)
+                        if(msg == None):
                             counter += 1
                         else:
-                            arreglodemsj.append(msj)
-                    return arreglodemsj
+                            msg_list.append(msg)
+                    return msg_list
             else:
                 self._GetStatusError(0, 128)
                 self.message = "Error... CTS in False"
@@ -399,38 +275,31 @@ class TFBase:
             m = None
         return m
 
-    def _ReadFiscalMemoryByDate(self, cmd):
-        '''
-            reads the fiscal memory at the given cmd params
-
-            params:
-                cmd: str
-
-            returns: [str] or None
-        '''
-        msj = ""
-        arreglodemsj = []
+    def _ReadFiscalMemoryByDate(self, cmd:str) -> str:
+        '''reads the fiscal memory at the given cmd params'''
+        msg = ""
+        msg_list = []
         counter = 0
         try:
             self.ser.flushInput()
             self.ser.flushOutput()
             if self._HandleCTSRTS():
                 m = ""
-                msj = self._AssembleQueryToSend(cmd)
-                self._write(msj)
+                msg = self._AssembleQueryToSend(cmd)
+                self._write(msg)
                 rt = self._read(1)
                 while True:
-                    while msj != chr(0x04):
+                    while msg != chr(0x04):
                         time.sleep(0.5)
-                        msj = self._Debug('ACK')
-                        self._write(msj)
+                        msg = self._Debug('ACK')
+                        self._write(msg)
                         time.sleep(0.5)
-                        msj = self._FetchRow_Report(1.5)
-                        if(msj == None):
+                        msg = self._FetchRow_Report(1.5)
+                        if(msg == None):
                             counter += 1
                         else:
-                            arreglodemsj.append(msj)
-                    return arreglodemsj
+                            msg_list.append(msg)
+                    return msg_list
             else:
                 self._GetStatusError(0, 128)
                 self.message = "Error... CTS in False"
@@ -537,16 +406,15 @@ class TFBase:
         return status+"   " + error+"   " + self.error
 
 
-class TDVHKAController:
+class FPPrinterController:
     def __init__(self):
-        self.printer = TFBase()
+        self.printer = FPPrinter()
 
     def open_port(self, **kwargs):
         try:
             resp = self.printer.OpenFpctrl(**kwargs)
             if not resp:
-                raise Exception(
-                    'Impresora no Conectada o Error Accediendo al Puerto')
+                raise Exception('Impresora no Conectada o Error Accediendo al Puerto')
         except Exception as e:
             raise e
         else:
@@ -559,14 +427,14 @@ class TDVHKAController:
         return 1
 
     def send_cmds(self, cmds):
+        response = []
         for cmd in cmds:
-            self.send_cmd(cmd)
+            response.append(self.send_cmd(cmd))
+        return response
 
     def get_state(self, state: str = 'S1') -> str:
-        '''
-            get the given state Sx
-        '''
+        '''get the given state Sx'''
         return self.printer.getState(state)
 
     def send_cmd(self, cmd):
-        self.printer.SendCmd(cmd)
+        return self.printer._States(cmd)

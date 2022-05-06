@@ -1,8 +1,10 @@
+from ..base_formatter import BaseFormatter
+from .MethodHelper import MethodHelper
 import time
 import datetime
-from .MethodHelper import MethodHelper
 
-class TDVHKAFormatter:
+
+class TDVHKAFormatter(BaseFormatter):
     def __init__(self):
         self.printer = MethodHelper()
 
@@ -39,7 +41,7 @@ class TDVHKAFormatter:
     def nf_document(self):
         # Documento No Fiscal
         self.printer.SendCmd(str("80$Documento de Prueba"))
-        self.printer.SendCmd(str("80¡Esto es un documento de texto"))
+        # self.printer.SendCmd(str("80¡Esto es un documento de texto"))
         self.printer.SendCmd(str("80!Es un documento no fiscal"))
         self.printer.SendCmd(str("80*Es bastante util y versatil"))
         self.printer.SendCmd(str("810Fin del Documento no Fiscal"))
@@ -126,8 +128,7 @@ class TDVHKAFormatter:
 
     def print_invoice_products(self,
                          products: list = [],
-                         invoice_type: str = 'out_invoice',
-                         DEBUG: bool = False):
+                         invoice_type: str = 'out_invoice'):
         response = []
         for product in products:
             line = ''
@@ -138,9 +139,8 @@ class TDVHKAFormatter:
             line += self.format_units(unit=product.get('product_qty'),
                                      unit_type='quantity')
             line += product.get('name')[:33]
-            if not DEBUG:
-                self.printer.SendCmd(line)
-                time.sleep(0.1)
+            self.printer.SendCmd(line)
+            time.sleep(0.1)
             response.append(line)
 
         return response
@@ -177,196 +177,14 @@ class TDVHKAFormatter:
             for payment in payments:
                 self.pay(payment=payment, code='2')
 
-    def reprint_document(self, ref: int = 0):
+    def reprint_document(self, ref: int = 0, document_type: str = 'out_invoice'):
         f_ref = self.format_units(unit=ref, unit_type='reprint')
-        self.printer.SendCmd(f'RF{f_ref}{f_ref}')
-
-
-    def get_z_by_num(self):
-        n_ini = self.obt_num_ini.value()
-        n_fin = self.obt_num_fin.value()
-        reportes = self.printer.GetZReport("A", n_ini, n_fin)
-        CR = len(reportes)
-        Enc = "Lista de Reportes\n" + "\n"
-        salida = ""
-        for NR in range(CR):
-            salida += "Numero de Reporte Z: " + \
-                str(reportes[NR]._numberOfLastZReport)
-            salida += "\nFecha Ultimo Reporte Z: " + \
-                str(reportes[NR]._zReportDate)
-            salida += "\nHora Ultimo Reporte Z: " + \
-                str(reportes[NR]._zReportTime)
-            salida += "\nNumero Ultima Factura: " + \
-                str(reportes[NR]._numberOfLastInvoice)
-            salida += "\nFecha Ultima Factura: " + \
-                str(reportes[NR]._lastInvoiceDate)
-            salida += "\nHora Ultima Factura: " + \
-                str(reportes[NR]._lastInvoiceTime)
-            salida += "\nNumero Ultima Nota de Credito: " + \
-                str(reportes[NR]._numberOfLastCreditNote)
-            salida += "\nNumero Ultima Nota de Debito: " + \
-                str(reportes[NR]._numberOfLastDebitNote)
-            salida += "\nNumero Ultimo Doc No Fiscal: " + \
-                str(reportes[NR]._numberOfLastNonFiscal)
-            salida += "\nVentas Exento: " + str(reportes[NR]._freeSalesTax)
-            salida += "\nBase Imponible Ventas IVA G: " + \
-                str(reportes[NR]._generalRate1Sale)
-            salida += "\nImpuesto IVA G: " + str(reportes[NR]._generalRate1Tax)
-            salida += "\nBase Imponible Ventas IVA R: " + \
-                str(reportes[NR]._reducedRate2Sale)
-            salida += "\nImpuesto IVA R: " + str(reportes[NR]._reducedRate2Tax)
-            salida += "\nBase Imponible Ventas IVA A: " + \
-                str(reportes[NR]._additionalRate3Sal)
-            salida += "\nImpuesto IVA A: " + \
-                str(reportes[NR]._additionalRate3Tax)
-            salida += "\nNota de Debito Exento: " + \
-                str(reportes[NR]._freeTaxDebit)
-            salida += "\nBI IVA G en Nota de Debito: " + \
-                str(reportes[NR]._generalRateDebit)
-            salida += "\nImpuesto IVA G en Nota de Debito: " + \
-                str(reportes[NR]._generalRateTaxDebit)
-            salida += "\nBI IVA R en Nota de Debito: " + \
-                str(reportes[NR]._reducedRateDebit)
-            salida += "\nImpuesto IVA R en Nota de Debito: " + \
-                str(reportes[NR]._reducedRateTaxDebit)
-            salida += "\nBI IVA A en Nota de Debito: " + \
-                str(reportes[NR]._additionalRateDebit)
-            salida += "\nImpuesto IVA A en Nota de Debito: " + \
-                str(reportes[NR]._additionalRateTaxDebit)
-            salida += "\nNota de Credito Exento: " + \
-                str(reportes[NR]._freeTaxDevolution)
-            salida += "\nBI IVA G en Nota de Credito: " + \
-                str(reportes[NR]._generalRateDevolution)
-            salida += "\nImpuesto IVA G en Nota de Credito: " + \
-                str(reportes[NR]._generalRateTaxDevolution)
-            salida += "\nBI IVA R en Nota de Credito: " + \
-                str(reportes[NR]._reducedRateDevolution)
-            salida += "\nImpuesto IVA R en Nota de Credito: " + \
-                str(reportes[NR]._reducedRateTaxDevolution)
-            salida += "\nBI IVA A en Nota de Credito: " + \
-                str(reportes[NR]._additionalRateDevolution)
-            salida += "\nImpuesto IVA A en Nota de Credito: " + \
-                str(reportes[NR]._additionalRateTaxDevolution)+"\n\n"
-
-    def get_z_by_date(self):
-        n_ini = self.obt_date_ini.date().toPyDate()
-        n_fin = self.obt_date_fin.date().toPyDate()
-        reportes = self.printer.GetZReport("A", n_ini, n_fin)
-        CR = len(reportes)
-        Enc = "Lista de Reportes\n" + "\n"
-        salida = ""
-        for NR in range(CR):
-            salida += "Numero de Reporte Z: " + \
-                str(reportes[NR]._numberOfLastZReport)
-            salida += "\nFecha Ultimo Reporte Z: " + \
-                str(reportes[NR]._zReportDate)
-            salida += "\nHora Ultimo Reporte Z: " + \
-                str(reportes[NR]._zReportTime)
-            salida += "\nNumero Ultima Factura: " + \
-                str(reportes[NR]._numberOfLastInvoice)
-            salida += "\nFecha Ultima Factura: " + \
-                str(reportes[NR]._lastInvoiceDate)
-            salida += "\nHora Ultima Factura: " + \
-                str(reportes[NR]._lastInvoiceTime)
-            salida += "\nNumero Ultima Nota de Credito: " + \
-                str(reportes[NR]._numberOfLastCreditNote)
-            salida += "\nNumero Ultima Nota de Debito: " + \
-                str(reportes[NR]._numberOfLastDebitNote)
-            salida += "\nNumero Ultimo Doc No Fiscal: " + \
-                str(reportes[NR]._numberOfLastNonFiscal)
-            salida += "\nVentas Exento: " + str(reportes[NR]._freeSalesTax)
-            salida += "\nBase Imponible Ventas IVA G: " + \
-                str(reportes[NR]._generalRate1Sale)
-            salida += "\nImpuesto IVA G: " + str(reportes[NR]._generalRate1Tax)
-            salida += "\nBase Imponible Ventas IVA R: " + \
-                str(reportes[NR]._reducedRate2Sale)
-            salida += "\nImpuesto IVA R: " + str(reportes[NR]._reducedRate2Tax)
-            salida += "\nBase Imponible Ventas IVA A: " + \
-                str(reportes[NR]._additionalRate3Sal)
-            salida += "\nImpuesto IVA A: " + \
-                str(reportes[NR]._additionalRate3Tax)
-            salida += "\nNota de Debito Exento: " + \
-                str(reportes[NR]._freeTaxDebit)
-            salida += "\nBI IVA G en Nota de Debito: " + \
-                str(reportes[NR]._generalRateDebit)
-            salida += "\nImpuesto IVA G en Nota de Debito: " + \
-                str(reportes[NR]._generalRateTaxDebit)
-            salida += "\nBI IVA R en Nota de Debito: " + \
-                str(reportes[NR]._reducedRateDebit)
-            salida += "\nImpuesto IVA R en Nota de Debito: " + \
-                str(reportes[NR]._reducedRateTaxDebit)
-            salida += "\nBI IVA A en Nota de Debito: " + \
-                str(reportes[NR]._additionalRateDebit)
-            salida += "\nImpuesto IVA A en Nota de Debito: " + \
-                str(reportes[NR]._additionalRateTaxDebit)
-            salida += "\nNota de Credito Exento: " + \
-                str(reportes[NR]._freeTaxDevolution)
-            salida += "\nBI IVA G en Nota de Credito: " + \
-                str(reportes[NR]._generalRateDevolution)
-            salida += "\nImpuesto IVA G en Nota de Credito: " + \
-                str(reportes[NR]._generalRateTaxDevolution)
-            salida += "\nBI IVA R en Nota de Credito: " + \
-                str(reportes[NR]._reducedRateDevolution)
-            salida += "\nImpuesto IVA R en Nota de Credito: " + \
-                str(reportes[NR]._reducedRateTaxDevolution)
-            salida += "\nBI IVA A en Nota de Credito: " + \
-                str(reportes[NR]._additionalRateDevolution)
-            salida += "\nImpuesto IVA A en Nota de Credito: " + \
-                str(reportes[NR]._additionalRateTaxDevolution)+"\n"+"\n"
-
-    def get_z_report(self):
-        reporte = self.printer.GetZReport()
-        salida = "Numero Ultimo Reporte Z: " + \
-            str(reporte._numberOfLastZReport)
-        salida += "\nFecha Ultimo Reporte Z: " + str(reporte._zReportDate)
-        salida += "\nHora Ultimo Reporte Z: " + str(reporte._zReportTime)
-        salida += "\nNumero Ultima Factura: " + \
-            str(reporte._numberOfLastInvoice)
-        salida += "\nFecha Ultima Factura: " + str(reporte._lastInvoiceDate)
-        salida += "\nHora Ultima Factura: " + str(reporte._lastInvoiceTime)
-        salida += "\nNumero Ultima Nota de Debito: " + \
-            str(reporte._numberOfLastDebitNote)
-        salida += "\nNumero Ultima Nota de Credito: " + \
-            str(reporte._numberOfLastCreditNote)
-        salida += "\nNumero Ultimo Doc No Fiscal: " + \
-            str(reporte._numberOfLastNonFiscal)
-        salida += "\nVentas Exento: " + str(reporte._freeSalesTax)
-        salida += "\nBase Imponible Ventas IVA G: " + \
-            str(reporte._generalRate1Sale)
-        salida += "\nImpuesto IVA G: " + str(reporte._generalRate1Tax)
-        salida += "\nBase Imponible Ventas IVA R: " + \
-            str(reporte._reducedRate2Sale)
-        salida += "\nImpuesto IVA R: " + str(reporte._reducedRate2Tax)
-        salida += "\nBase Imponible Ventas IVA A: " + \
-            str(reporte._additionalRate3Sal)
-        salida += "\nImpuesto IVA A: " + str(reporte._additionalRate3Tax)
-        salida += "\nNota de Debito Exento: " + str(reporte._freeTaxDebit)
-        salida += "\nBI IVA G en Nota de Debito: " + \
-            str(reporte._generalRateDebit)
-        salida += "\nImpuesto IVA G en Nota de Debito: " + \
-            str(reporte._generalRateTaxDebit)
-        salida += "\nBI IVA R en Nota de Debito: " + \
-            str(reporte._reducedRateDebit)
-        salida += "\nImpuesto IVA R en Nota de Debito: " + \
-            str(reporte._reducedRateTaxDebit)
-        salida += "\nBI IVA A en Nota de Debito: " + \
-            str(reporte._additionalRateDebit)
-        salida += "\nImpuesto IVA A en Nota de Debito: " + \
-            str(reporte._additionalRateTaxDebit)
-        salida += "\nNota de Credito Exento: " + \
-            str(reporte._freeTaxDevolution)
-        salida += "\nBI IVA G en Nota de Credito: " + \
-            str(reporte._generalRateDevolution)
-        salida += "\nImpuesto IVA G en Nota de Credito: " + \
-            str(reporte._generalRateTaxDevolution)
-        salida += "\nBI IVA R en Nota de Credito: " + \
-            str(reporte._reducedRateDevolution)
-        salida += "\nImpuesto IVA R en Nota de Credito: " + \
-            str(reporte._reducedRateTaxDevolution)
-        salida += "\nBI IVA A en Nota de Credito: " + \
-            str(reporte._additionalRateDevolution)
-        salida += "\nImpuesto IVA A en Nota de Credito: " + \
-            str(reporte._additionalRateTaxDevolution)
+        if document_type == 'out_invoice':
+            self.printer.SendCmd(f'RF{f_ref}{f_ref}')
+        elif document_type == 'out_refund':
+            self.printer.SendCmd(f'RC{f_ref}{f_ref}')
+        else:
+            self.printer.SendCmd(f'R{document_type}{f_ref}{f_ref}')
 
     def get_x_report(self):
         reporte = self.printer.GetXReport()
@@ -396,7 +214,10 @@ class TDVHKAFormatter:
             data = self.printer.GetS5PrinterData(trama=trama)
         elif state == "S6":
             data = self.printer.GetS6PrinterData(trama=trama)
-        return data.getData()
+        if data:
+            return data.getData()
+        else:
+            raise Exception("Error with the data interface")
 
     # def enviar_archivo(self):
     #     nombre_fichero = QFileDialog.getOpenFileName(
@@ -418,8 +239,11 @@ class TDVHKAFormatter:
     def report_z(self):
         self.printer.SendCmd('I0Z')
 
-    def print_z_report(self):
-        self.printer.PrintZReport()
+    # def print_z_report(self):
+    #     self.printer.PrintZReport()
 
     # def print_x_report(self):
     #     self.printer.PrintXReport()
+
+    def __str__(self):
+        return '\n'.join(f'"{trama}"' for trama in self.printer_trace())

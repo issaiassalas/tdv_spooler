@@ -8,23 +8,25 @@ from time import sleep
 from ..format_invoices import format_invoices
 from ..qprinter_controller import QPrinterController
 
+
 class QERPConnection(QObject):
     finished = pyqtSignal()
     start_connection = pyqtSignal()
     progress = pyqtSignal(str)
+
     def __init__(
-            self, 
-            *args, 
-            url = '',
-            db = '',
-            username = '',
-            password = '',
-            parent = None,
+            self,
+            *args,
+            url='',
+            db='',
+            username='',
+            password='',
+            parent=None,
             **kwargs
-            ):
+    ):
         super().__init__(*args, **kwargs)
         self._erp_connection = ERPConnection(
-            url = url, db = db, username = username, password = password
+            url=url, db=db, username=username, password=password
         )
         self._parent = parent
         self.paused = False
@@ -35,20 +37,35 @@ class QERPConnection(QObject):
     def authenticated(self):
         return self._erp_connection.uid
 
+    def reprint_document(self, invoice):
+        self._parent.new_thread_signal.emit(
+            # QPrinterController(
+            {
+                'bind_function': self._parent._printer.reprint_document,
+                'parent': self._parent,
+                'bind_dict': {
+                    'db_invoice': invoice
+                },
+            }
+            # )
+        )
+        invoice.state = "PROCESSING"
+        invoice.save()
+
     def print_new_invoice(self, invoice):
         self._parent.new_thread_signal.emit(
             # QPrinterController(
-                {
-                    'bind_function':
-                        self._parent._printer.custom_invoice 
-                        if invoice.invoice_type == 'out_invoice'
-                        else self._parent._printer.credit_note,
-                    'parent':self._parent,
-                    'bind_dict':{
+            {
+                'bind_function':
+                self._parent._printer.custom_invoice
+                if invoice.invoice_type == 'out_invoice'
+                else self._parent._printer.credit_note,
+                    'parent': self._parent,
+                    'bind_dict': {
                         'db_invoice': invoice,
                         **json.loads(invoice.data)
                     },
-                }
+            }
             # )
         )
         invoice.state = "PROCESSING"
@@ -73,21 +90,20 @@ class QERPConnection(QObject):
             with db.atomic():
                 Invoice.insert_many(format_invoices(invoices)).execute()
 
-
     def send_completed_invoices(self):
         db_invoices = Invoice.select().where(Invoice.state == 'DONE')
         invoices = self._erp_connection.update_invoices(
             invoices=[
-            {
-                'id': invoice.ref_id,
-                'ticket_ref': invoice.ticket_ref,
-                'num_report_z': invoice.num_report_z,
-                'fp_serial_num': invoice.fp_serial_num,
-                'fp_serial_date': invoice.fp_serial_date,
-                'cn_ticket_ref': invoice.cn_ticket_ref,
-            }
-            for invoice in db_invoices
-        ])
+                {
+                    'id': invoice.ref_id,
+                    'ticket_ref': invoice.ticket_ref,
+                    'num_report_z': invoice.num_report_z,
+                    'fp_serial_num': invoice.fp_serial_num,
+                    'fp_serial_date': invoice.fp_serial_date,
+                    'cn_ticket_ref': invoice.cn_ticket_ref,
+                }
+                for invoice in db_invoices
+            ])
 
         print(invoices)
 
@@ -100,21 +116,25 @@ class QERPConnection(QObject):
         try:
             self.mutex.lock()
             self._parent.stop_connection.emit()
-            invoice = Invoice.select().where(Invoice.state == 'PENDING').first()
+            invoice = Invoice.select().where(Invoice.state.in_(
+                ['PENDING', 'REPRINT'])
+            ).first()
             if invoice:
-                self.print_new_invoice(invoice)
+                if invoice.state == 'PENDING':
+                    self.print_new_invoice(invoice)
+                elif invoice.state == 'REPRINT':
+                    self.reprint_document(invoice)
             else:
                 self.retrieve_invoices()
 
             self.send_completed_invoices()
-            
+
         except ConnectionRefusedError:
             self.progress.emit('Hay problemas con la conexion...')
             sleep(3)
         finally:
             self.mutex.unlock()
             self._parent.start_connection.emit()
-
 
     def threadConnection(self):
         self.thread = QThread()

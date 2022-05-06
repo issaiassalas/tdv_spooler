@@ -56,11 +56,17 @@ class PrinterLine(object):
         if type(self.fields) == list:
             self.fields = PrinterLine.format_plain_fields(fields=self.fields)
 
-    def join(self, separator=chr(0x1C)) -> str:
-        '''Join al the command to send to the fiscal printer'''
-        self.validate_fields()
-        return self.sequence + self.command + separator + \
-            separator.join([
+        if self.fields:
+            return [
                 self.fields.get(index, '') 
                 for index in range(1, self._limit or self.next_index)
-            ]) + (separator if self.separator_ends else '')
+            ]
+        else:
+            return ['']
+
+    def join(self, separator=chr(0x1C)) -> str:
+        '''Join al the command to send to the fiscal printer'''
+        
+        return self.sequence + self.command + separator \
+            + separator.join(self.validate_fields()) \
+            + (separator if self.separator_ends else '')
