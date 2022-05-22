@@ -5,20 +5,33 @@ import datetime
 
 
 class TDVHKAFormatter(BaseFormatter):
-    def __init__(self):
-        self.printer = MethodHelper()
+    def __init__(self, **kwargs):
+        self.printer = MethodHelper(
+            **kwargs
+        )
 
     def printer_trace(self):
         return self.printer.commands
 
+    def get_fiscal_status(self):
+        response = self.printer.execute(chr(0x05), bytes=5, modify=False)
+        print([ord(char) for char in response])
+        if len(response) == 5:
+            if ord(response[1]) ^ ord(response[2]) ^ 0x03 == ord(response[4]):
+                return self.printer.get_status_error(ord(response[1]), ord(response[2]))
+            else:
+                return self.printer.get_status_error(0, 144)
+        else:
+            return self.printer.get_status_error(0, 114)
+
     def print_programation(self):
-        self.printer.SendCmd("D")
+        self.printer.execute("D")
 
     def send_cmd(self, cmd):
-        self.printer.SendCmd(cmd)
+        self.printer.execute(cmd)
 
     def cancel_current(self):
-        self.printer.SendCmd('7')
+        self.printer.execute('7')
 
     def invoice(self, products: list = [], payments: list = []):
         # Factura sin Personalizar*
@@ -27,42 +40,45 @@ class TDVHKAFormatter(BaseFormatter):
         self.process_payment(payments=payments)
 
     def custom_invoice(self,
-                   client: dict = {},
-                   products: list = [],
-                   payments: list = []):
+                       client: dict = {},
+                       products: list = [],
+                       payments: list = [], **kw):
         self.print_client_data(client=client)
-        return self.invoice(products=products, payments=payments)
+        self.invoice(products=products, payments=payments)
+        return self.get_state(state='S1')
 
     def cancelled_invoice(self, client: dict = {}, products: list = []):
         self.print_client_data(client=client)
         self.print_invoice_products(products)
-        self.printer.SendCmd(str("7"))
+        self.printer.execute(str("7"))
 
     def nf_document(self):
         # Documento No Fiscal
-        self.printer.SendCmd(str("80$Documento de Prueba"))
-        # self.printer.SendCmd(str("80¡Esto es un documento de texto"))
-        self.printer.SendCmd(str("80!Es un documento no fiscal"))
-        self.printer.SendCmd(str("80*Es bastante util y versatil"))
-        self.printer.SendCmd(str("810Fin del Documento no Fiscal"))
+        self.printer.execute("80$Documento de Prueba")
+        self.printer.execute("80!Es un documento no fiscal")
+        self.printer.execute("80*Es bastante util y versatil")
+        self.printer.execute("810Fin del Documento no Fiscal")
+        return self.get_state(state='S1')
 
-    def credit_note(self, 
-                    client: dict = {}, 
-                    products: list = [], 
-                    document: int = 0, 
-                    serial: str = '', 
+    def credit_note(self,
+                    client: dict = {},
+                    products: list = [],
+                    document: int = 0,
+                    serial: str = '',
                     date: str = '',
                     payments: list = []
-            ):
+                    ):
         invoice = self.format_units(unit=document, unit_type='invoice')
-        self.printer.SendCmd(f'iF*{invoice}')
-        self.printer.SendCmd(f'iD*{date}')
-        self.printer.SendCmd(f'iI*{serial}')
+        self.printer.execute(f'iF*{invoice}')
+        self.printer.execute(f'iD*{date}')
+        self.printer.execute(f'iI*{serial}')
         self.print_client_data(client=client)
-        self.print_invoice_products(products=products, invoice_type='out_refund')
+        self.print_invoice_products(
+            products=products, invoice_type='out_refund')
         self.print_subtotal()
         self.process_payment(payments=payments)
-        # self.printer.SendCmd('101')
+        return self.get_state(state='S1')
+        # self.printer.execute('101')
 
     def reprint_invoices(self):
         n_ini = self.reimp_ini.value()
@@ -74,7 +90,7 @@ class TDVHKAFormatter(BaseFormatter):
         endString = str(n_fin)
         while (len(endString) < 7):
             endString = "0" + endString
-        self.printer.SendCmd("RF" + starString + endString)
+        self.printer.execute("RF" + starString + endString)
 
     def print_client_data(self, client={}):
         personal_counter = 0
@@ -83,13 +99,13 @@ class TDVHKAFormatter(BaseFormatter):
         address = client.get('street')
         phone = client.get('phone')
         if cr:
-            self.printer.SendCmd(f'iR*{cr}')
-        self.printer.SendCmd(f'iS*{name}')
+            self.printer.execute(f'iR*{cr}')
+        self.printer.execute(f'iS*{name}')
         if address:
-            self.printer.SendCmd(f'i0{personal_counter}Direccion: {address}')
+            self.printer.execute(f'i0{personal_counter}Direccion: {address}')
             personal_counter += 1
         if phone:
-            self.printer.SendCmd(f'i0{personal_counter}Telefono: {phone}')
+            self.printer.execute(f'i0{personal_counter}Telefono: {phone}')
             personal_counter += 1
 
     def format_units(self, unit: float = 0, unit_type: str = 'price'):
@@ -127,35 +143,35 @@ class TDVHKAFormatter(BaseFormatter):
                 return 'd0'
 
     def print_invoice_products(self,
-                         products: list = [],
-                         invoice_type: str = 'out_invoice'):
+                               products: list = [],
+                               invoice_type: str = 'out_invoice'):
         response = []
         for product in products:
             line = ''
             line += self.get_tax_type(product.get('tax'),
-                                    invoice_type=invoice_type)
+                                      invoice_type=invoice_type)
             line += self.format_units(unit=product.get('price_unit'),
-                                     unit_type='price')
+                                      unit_type='price')
             line += self.format_units(unit=product.get('product_qty'),
-                                     unit_type='quantity')
+                                      unit_type='quantity')
             line += product.get('name')[:33]
-            self.printer.SendCmd(line)
+            self.printer.execute(line)
             time.sleep(0.1)
             response.append(line)
 
         return response
 
     def reprint_last_invoice(self):
-        self.printer.SendCmd('RU00000000000000')
+        self.printer.execute('RU00000000000000')
 
     def setup_payment_method(self, id: int = 1, name: str = 'Efectivo'):
         cmd = 'PE'
         cmd += (str(100 + id))[1:]
         cmd += name[:14]
-        self.printer.SendCmd(cmd)
+        self.printer.execute(cmd)
 
     def print_subtotal(self):
-        self.printer.SendCmd('3')
+        self.printer.execute('3')
 
     def get_lazy_status(self, status):
         time.sleep(1)
@@ -164,13 +180,14 @@ class TDVHKAFormatter(BaseFormatter):
     def pay(self, payment: dict = {}, code: str = '1'):
         cmd = code + str(100 + payment.get('id', 1))[1:]
         if code == '2':
-            cmd += self.format_units(unit=payment.get('amount', 0.0), unit_type='payment')
+            cmd += self.format_units(unit=payment.get('amount',
+                                     0.0), unit_type='payment')
 
-        self.printer.SendCmd(cmd)
+        self.printer.execute(cmd)
 
     def process_payment(self, payments: list = []):
         if not payments or len(payments) == 0:
-            self.printer.SendCmd('7')
+            self.printer.execute('7')
         elif len(payments) == 1:
             self.pay(payment=payments[0])
         else:
@@ -180,11 +197,11 @@ class TDVHKAFormatter(BaseFormatter):
     def reprint_document(self, ref: int = 0, document_type: str = 'out_invoice'):
         f_ref = self.format_units(unit=ref, unit_type='reprint')
         if document_type == 'out_invoice':
-            self.printer.SendCmd(f'RF{f_ref}{f_ref}')
+            self.printer.execute(f'RF{f_ref}{f_ref}')
         elif document_type == 'out_refund':
-            self.printer.SendCmd(f'RC{f_ref}{f_ref}')
+            self.printer.execute(f'RC{f_ref}{f_ref}')
         else:
-            self.printer.SendCmd(f'R{document_type}{f_ref}{f_ref}')
+            self.printer.execute(f'R{document_type}{f_ref}{f_ref}')
 
     def get_x_report(self):
         reporte = self.printer.GetXReport()
@@ -202,6 +219,8 @@ class TDVHKAFormatter(BaseFormatter):
 
     def get_state(self, state: str = '', trama: str = '') -> dict:
         data = None
+        if not trama:
+            trama = self.printer.execute(state, time=1)
         if state == "S1":
             data = self.printer.GetS1PrinterData(trama=trama)
         elif state == "S2":
@@ -227,17 +246,17 @@ class TDVHKAFormatter(BaseFormatter):
     #         filename = str(QFileInfo(nombre_fichero).fileName())
     #         dirname = str(QFileInfo(nombre_fichero).path())
     #         path = open(os.path.join(dirname, filename), 'r')
-    #         self.printer.SendCmdFile(path)
+    #         self.printer.executeFile(path)
 
     def error_state(self):
         self.estado = self.printer.ReadFpStatus()
         print("Estado: " + self.estado[0] + "\n" + "Error: " + self.estado[5])
 
     def report_x(self):
-        self.printer.SendCmd('I0X')
+        self.printer.execute('I0X')
 
     def report_z(self):
-        self.printer.SendCmd('I0Z')
+        self.printer.execute('I0Z')
 
     # def print_z_report(self):
     #     self.printer.PrintZReport()

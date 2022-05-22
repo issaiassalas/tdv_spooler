@@ -6,6 +6,9 @@ class BaseFormatter(object):
     def printer_trace(self) -> list:
         '''Get list of print statements'''
 
+    def append_data(self, *args, **kwargs):
+        pass
+
     def print_programation(self) -> None:
         '''Sends the programation to queue'''
 
@@ -37,7 +40,7 @@ class BaseFormatter(object):
 
         '''
 
-    def custom_invoice(self, client: dict = {}, products: list = [], payments: list = []) -> None:
+    def custom_invoice(self, client: dict = {}, products: list = [], payments: list = [], **kw) -> None:
         '''
             Format the given data into a invoice (helper to other functions)
 

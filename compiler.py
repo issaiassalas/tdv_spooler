@@ -5,5 +5,6 @@ PyInstaller.__main__.run([
     '--clean',
     '--noconsole',
     '--icon=./assets/tdv_logo.ico',
+    '--name=odoovenezuela'
 ])
 

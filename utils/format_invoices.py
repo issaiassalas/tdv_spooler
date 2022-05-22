@@ -40,6 +40,7 @@ def format_invoices(invoices):
             'fp_serial_date': invoice.get('fp_serial_date'),
             'invoice_type': invoice.get('type'),
             'state': 'PENDING',
+            'action_type': invoice.get('action_type'),
             'data': json.dumps({
                 'client': {
                     'name': invoice.get('partner_id', {}).get('name', 'CLIENTEXXX'),
@@ -56,7 +57,8 @@ def format_invoices(invoices):
                     }
                     for product in invoice.get('invoice_line_ids')
                 ],
-                'payments': format_payments(invoice)
+                'payments': format_payments(invoice),
+                'reversed': invoice.get('reversed')
             }),
             'amount_total': invoice.get('amount_total')
         } for invoice in invoices

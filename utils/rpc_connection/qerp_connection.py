@@ -73,26 +73,25 @@ class QERPConnection(QObject):
 
     def retrieve_invoices(self):
         invoices = self._erp_connection.retrive_invoices()
-        if invoices:
-            invoice_ids = [
-                invoice.get('id') for invoice in invoices
-            ]
-            saved_invoice_ids = [
-                invoice.ref_id
-                for invoice in Invoice.select().where(Invoice.ref_id.in_(invoice_ids))
-            ]
-            invoices = list(filter(
-                lambda invoice: invoice.get('id') not in saved_invoice_ids,
-                invoices
-            ))
-
+        # if invoices:
+        #     invoice_ids = [
+        #         invoice.get('id') for invoice in invoices
+        #     ]
+        #     saved_invoice_ids = [
+        #         invoice.ref_id
+        #         for invoice in Invoice.select().where(Invoice.ref_id.in_(invoice_ids))
+        #     ]
+        #     invoices = list(filter(
+        #         lambda invoice: invoice.get('id') not in saved_invoice_ids,
+        #         invoices
+        #     ))
         if invoices:
             with db.atomic():
                 Invoice.insert_many(format_invoices(invoices)).execute()
 
     def send_completed_invoices(self):
         db_invoices = Invoice.select().where(Invoice.state == 'DONE')
-        invoices = self._erp_connection.update_invoices(
+        self._erp_connection.update_invoices(
             invoices=[
                 {
                     'id': invoice.ref_id,
@@ -105,8 +104,6 @@ class QERPConnection(QObject):
                 for invoice in db_invoices
             ])
 
-        print(invoices)
-
         if db_invoices:
             Invoice.update(state='SENT').where(Invoice.id.in_(
                 [inv.id for inv in db_invoices]
@@ -116,13 +113,13 @@ class QERPConnection(QObject):
         try:
             self.mutex.lock()
             self._parent.stop_connection.emit()
-            invoice = Invoice.select().where(Invoice.state.in_(
-                ['PENDING', 'REPRINT'])
+            invoice = Invoice.select().where(
+                Invoice.state == 'PENDING'
             ).first()
             if invoice:
-                if invoice.state == 'PENDING':
+                if invoice.action_type == 'to_print':
                     self.print_new_invoice(invoice)
-                elif invoice.state == 'REPRINT':
+                elif invoice.action_type == 'to_reprint':
                     self.reprint_document(invoice)
             else:
                 self.retrieve_invoices()

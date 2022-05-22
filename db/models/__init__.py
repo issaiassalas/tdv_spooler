@@ -18,6 +18,7 @@ class Invoice(BaseModel):
     fp_serial_num = CharField()
     fp_serial_date = CharField()
     invoice_type = CharField() #in_invoice, out_invoice
+    action_type = CharField()
     state = CharField() #PENDING, PROCESSING, DONE, FAILED, SENT
     data = TextField() #should save a JSON
     amount_total = FloatField()

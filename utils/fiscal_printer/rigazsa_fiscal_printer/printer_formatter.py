@@ -5,16 +5,20 @@ import time
 import datetime
 
 class Printer(object):
-    def __init__(self):
+    def __init__(self, printer_controller = None):
+        self.printer_controller = printer_controller
         self.commands = []
 
     def SendCmd(self, cmd):
-        self.commands.append(cmd)
+        with open('log.txt', 'a') as f:
+            f.write(f'CMD: {cmd}')
+            response = self.printer_controller.send_cmd(cmd)
+            f.write(f'RESPONSE: {response}')
 
 class RigazsaFormatter(BaseFormatter):
     '''Rigazsa Fiscal printer tramas formatter'''
-    def __init__(self):
-        self.printer = Printer()
+    def __init__(self, *args, **kwargs):
+        self.printer = Printer(*args, **kwargs)
         self._sequence = 32
 
     def new_sequence(self):
@@ -71,7 +75,7 @@ class RigazsaFormatter(BaseFormatter):
     def custom_invoice(self,
                    client: dict = {},
                    products: list = [],
-                   payments: list = []):
+                   payments: list = [], **kw):
         self.new_sequence()
         self.print_client_data(client=client)
         
@@ -97,11 +101,6 @@ class RigazsaFormatter(BaseFormatter):
         self.send_line(
             command = chr(0x4A)
         )
-        # self.printer.SendCmd(str("80$Documento de Prueba"))
-        # self.printer.SendCmd(str("80¡Esto es un documento de texto"))
-        # self.printer.SendCmd(str("80!Es un documento no fiscal"))
-        # self.printer.SendCmd(str("80*Es bastante util y versatil"))
-        # self.printer.SendCmd(str("810Fin del Documento no Fiscal"))
 
     def credit_note(self, 
                     client: dict = {}, 
@@ -330,6 +329,9 @@ class RigazsaFormatter(BaseFormatter):
             ],
             separator_ends = True
         )
+
+    def get_fiscal_status():
+        return 'No implementado'
 
     def __str__(self):
         return '\n'.join(f'"{trama}"' for trama in self.printer_trace())

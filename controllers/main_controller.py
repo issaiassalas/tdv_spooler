@@ -65,7 +65,7 @@ class MainWindow(QMainWindow, Ui_main_window.Ui_MainWindow):
         self.qtimer.start()
 
         self.printer_status_timer = QTimer()
-        self.printer_status_timer.setInterval(1000)
+        self.printer_status_timer.setInterval(100)
         self.printer_status_timer.timeout.connect(self.check_printer_status)
         self.printer_status_timer.start()
 
@@ -205,6 +205,14 @@ class MainWindow(QMainWindow, Ui_main_window.Ui_MainWindow):
             )
             self.queue_thread(pcontroller)
 
+    def fiscal_status(self):
+        if self.is_printer_connected:
+            pcontroller = QPrinterController(
+                bind_function = self._printer.get_fiscal_status,
+                parent=self
+            )
+            self.queue_thread(pcontroller) 
+
     def test_action(self):
         if self.is_printer_connected:
             pcontroller = QPrinterController(
@@ -244,7 +252,7 @@ class MainWindow(QMainWindow, Ui_main_window.Ui_MainWindow):
         self.connection_button.clicked.connect(self.refresh_ports)
         self.print_x.clicked.connect(self.print_x_report)
         self.print_z.clicked.connect(self.print_z_report)
-        self.test_button.clicked.connect(self.test_action)
+        self.fiscal_button.clicked.connect(self.fiscal_status)
         self.exit_button.clicked.connect(self.exit_fiscal_printer)
         self.header_frame.mouseMoveEvent = self.move_window
         self.toggle_menu_button.clicked.connect(self.toggle_menu)

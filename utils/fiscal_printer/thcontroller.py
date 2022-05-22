@@ -1,6 +1,7 @@
 
 from functools import reduce
 
+import json
 import serial
 import operator
 import time
@@ -15,6 +16,7 @@ class FPPrinter:
         self.status = ''
         self.message = ''
         self.error = ''
+        self.ser = None
 
     def OpenFpctrl(self, **kwargs) -> bool:
         '''try to open the selected port and return if is successfull'''
@@ -34,6 +36,11 @@ class FPPrinter:
             self.ser.close()
             self.ctrlFlag = False
             return self.ctrlFlag
+
+    def is_open(self) -> bool:
+        if self.ser and type(self.ser) == serial.Serial:
+            return self.ser.is_open
+        return False
 
     def getState(self, state) -> dict:
         return self._States(state)
@@ -90,7 +97,7 @@ class FPPrinter:
             if (line != ""):
                 self.SendCmd(line)
 
-    def _QueryCmd(self, cmd:str, modify=True) -> bool:
+    def _QueryCmd(self, cmd: str = '', modify: bool = True) -> bool:
         '''sends query to cmd if is valid'''
         try:
             self.ser.flushInput()
@@ -102,21 +109,23 @@ class FPPrinter:
                 self._write(msg)
                 rt = chr(0x06)
             else:
-                self._GetStatusError(0, 128)
-                self.message = "Error... CTS in False"
                 rt = chr(0X15)
                 self.ser.setRTS(False)
+                raise Exception(json.dumps({
+                    'message': "Error... CTS in False",
+                    'status_error': (0, 128)
+                }))
         except serial.SerialException:
             rt = chr(0X15)
         return rt
 
-    def _FetchRow(self) -> str:
+    def _FetchRow(self, read_bytes: int = 1, wait_time: float = 1/5) -> str:
         '''retrieves msg from cmd if any'''
         while True:
-            time.sleep(1/2)
+            time.sleep(wait_time)
             bytes = self.ser.in_waiting
             if bytes <= 1:
-                return self._read(1)
+                return self._read(read_bytes).decode('utf8')
             msg = (self._read(bytes)).decode('utf-8')
             lrc = self._Lrc(msg[1:-1])
             if lrc:
@@ -126,7 +135,7 @@ class FPPrinter:
             else:
                 return ''
 
-    def _FetchRow_Report(self, r:int) -> str:
+    def _FetchRow_Report(self, r: int) -> str:
         '''get rows in the given time if any'''
         while True:
             time.sleep(r)
@@ -144,45 +153,24 @@ class FPPrinter:
             else:
                 return ''
 
-    def ReadFpStatus(self):
-        '''
-            get status of fiscal printer as errorInterface
-
-            returns: ErrorInterface
-        '''
-        if self._HandleCTSRTS():
-            msg = chr(0x05)
-            self._write(msg)
-            time.sleep(0.05)
-            r = self._read(5)
-            if len(r) == 5:
-                if ord(r[1]) ^ ord(r[2]) ^ 0x03 == ord(r[4]):
-                    return self._GetStatusError(ord(r[1]), ord(r[2]))
-                else:
-                    return self._GetStatusError(0, 144)
-            else:
-                return self._GetStatusError(0, 114)
-        else:
-            return self._GetStatusError(0, 128)
-
-    def _write(self, msg:str):
+    def _write(self, msg: str):
         '''write in the opened serial port'''
         self.ser.write(msg.encode())
 
-    def _read(self, bytes:int) -> str:
+    def _read(self, bytes: int) -> str:
         '''read the response of the serial port'''
         return self.ser.read(bytes)
 
-    def _AssembleQueryToSend(self, line:str) -> str:
+    def _AssembleQueryToSend(self, line: str) -> str:
         '''concats the given params to respective format'''
         data = line + chr(0x03)
         return chr(0x02)+data+self._Lrc(data)
 
-    def _Lrc(self, line:str) -> str:
+    def _Lrc(self, line: str) -> str:
         '''calculate block check character'''
         return chr(reduce(operator.xor, map(ord, str(line))))
 
-    def _Debug(self, line:str) -> str:
+    def _Debug(self, line: str) -> str:
         '''debugs the given line'''
         if line != '':
             if len(line) == 0:
@@ -203,17 +191,17 @@ class FPPrinter:
 
         return line+adic
 
-    def _States(self, cmd:str) -> str:
+    def _States(self, cmd: str, time: float = 1/5, bytes: int = 1, modify: bool = True) -> str:
         '''get trama setup'''
-        self._QueryCmd(cmd)
-        return self._FetchRow()
+        self._QueryCmd(cmd = cmd, modify = modify)
+        return self._FetchRow(read_bytes = bytes, wait_time = time)
 
-    def _States_Report(self, cmd:str, r:int) -> str:
+    def _States_Report(self, cmd: str, r: int) -> str:
         '''cmd reports'''
         self._QueryCmd(cmd)
         return self._FetchRow_Report(r)
 
-    def _UploadDataReport(self, cmd:str) -> str:
+    def _UploadDataReport(self, cmd: str) -> str:
         '''uploads data to cmd'''
         try:
             self.ser.flushInput()
@@ -241,172 +229,10 @@ class FPPrinter:
             rt = ''
             return rt
 
-    def _ReadFiscalMemoryByNumber(self, cmd:str) -> str:
-        '''reads the fiscal memory at the given cmd params'''
-        msg = ""
-        msg_list = []
-        counter = 0
-        try:
-            self.ser.flushInput()
-            self.ser.flushOutput()
-            if self._HandleCTSRTS():
-                m = ""
-                msg = self._AssembleQueryToSend(cmd)
-                self._write(msg)
-                rt = self._read(1)
-                while True:
-                    while msg != chr(0x04):
-                        time.sleep(0.5)
-                        msg = self._Debug('ACK')
-                        self._write(msg)
-                        time.sleep(0.5)
-                        msg = self._FetchRow_Report(1.3)
-                        if(msg == None):
-                            counter += 1
-                        else:
-                            msg_list.append(msg)
-                    return msg_list
-            else:
-                self._GetStatusError(0, 128)
-                self.message = "Error... CTS in False"
-                m = None
-                self.ser.setRTS(False)
-        except serial.SerialException:
-            m = None
-        return m
-
-    def _ReadFiscalMemoryByDate(self, cmd:str) -> str:
-        '''reads the fiscal memory at the given cmd params'''
-        msg = ""
-        msg_list = []
-        counter = 0
-        try:
-            self.ser.flushInput()
-            self.ser.flushOutput()
-            if self._HandleCTSRTS():
-                m = ""
-                msg = self._AssembleQueryToSend(cmd)
-                self._write(msg)
-                rt = self._read(1)
-                while True:
-                    while msg != chr(0x04):
-                        time.sleep(0.5)
-                        msg = self._Debug('ACK')
-                        self._write(msg)
-                        time.sleep(0.5)
-                        msg = self._FetchRow_Report(1.5)
-                        if(msg == None):
-                            counter += 1
-                        else:
-                            msg_list.append(msg)
-                    return msg_list
-            else:
-                self._GetStatusError(0, 128)
-                self.message = "Error... CTS in False"
-                m = None
-                self.ser.setRTS(False)
-        except serial.SerialException:
-            m = None
-        return m
-
-    def _GetStatusError(self, st, er):
-        st_aux = st
-        st = st & ~0x04
-
-        if (st & 0x6A) == 0x6A:  # En modo fiscal, carga completa de la memoria fiscal y emisi�n de documentos no fiscales
-            self.status = 'En modo fiscal, carga completa de la memoria fiscal y emisi�n de documentos no fiscales'
-            status = "12"
-        # En modo fiscal, carga completa de la memoria fiscal y emisi�n de documentos  fiscales
-        elif (st & 0x69) == 0x69:
-            self.status = 'En modo fiscal, carga completa de la memoria fiscal y emisi�n de documentos  fiscales'
-            status = "11"
-        elif (st & 0x68) == 0x68:  # En modo fiscal, carga completa de la memoria fiscal y en espera
-            self.status = 'En modo fiscal, carga completa de la memoria fiscal y en espera'
-            status = "10"
-        elif (st & 0x72) == 0x72:  # En modo fiscal, cercana carga completa de la memoria fiscal y en emisi�n de documentos no fiscales
-            self.status = 'En modo fiscal, cercana carga completa de la memoria fiscal y en emisi�n de documentos no fiscales'
-            status = "9 "
-        elif (st & 0x71) == 0x71:  # En modo fiscal, cercana carga completa de la memoria fiscal y en emisi�n de documentos no fiscales
-            self.status = 'En modo fiscal, cercana carga completa de la memoria fiscal y en emisi�n de documentos no fiscales'
-            status = "8 "
-        elif (st & 0x70) == 0x70:  # En modo fiscal, cercana carga completa de la memoria fiscal y en espera
-            self.status = 'En modo fiscal, cercana carga completa de la memoria fiscal y en espera'
-            status = "7 "
-        elif (st & 0x62) == 0x62:  # En modo fiscal y en emisi�n de documentos no fiscales
-            self.status = 'En modo fiscal y en emisi�n de documentos no fiscales'
-            status = "6 "
-        elif (st & 0x61) == 0x61:  # En modo fiscal y en emisi�n de documentos fiscales
-            self.status = 'En modo fiscal y en emisi�n de documentos fiscales'
-            status = "5 "
-        elif (st & 0x60) == 0x60:  # En modo fiscal y en espera
-            self.status = 'En modo fiscal y en espera'
-            status = "4 "
-        elif (st & 0x42) == 0x42:  # En modo prueba y en emisi�n de documentos no fiscales
-            self.status = 'En modo prueba y en emisi�n de documentos no fiscales'
-            status = "3 "
-        elif (st & 0x41) == 0x41:  # En modo prueba y en emisi�n de documentos fiscales
-            self.status = 'En modo prueba y en emisi�n de documentos fiscales'
-            status = "2 "
-        elif (st & 0x40) == 0x40:  # En modo prueba y en espera
-            self.status = 'En modo prueba y en espera'
-            status = "1 "
-        elif (st & 0x00) == 0x00:  # Status Desconocido
-            self.status = 'Status Desconocido'
-            status = "0 "
-
-        if (er & 0x6C) == 0x6C:  # Memoria Fiscal llena
-            self.error = 'Memoria Fiscal llena'
-            error = "108"
-        elif (er & 0x64) == 0x64:  # Error en memoria fiscal
-            self.error = 'Error en memoria fiscal'
-            error = "100"
-        elif (er & 0x60) == 0x60:  # Error Fiscal
-            self.error = 'Error Fiscal'
-            error = "96 "
-        elif (er & 0x5C) == 0x5C:  # Comando Invalido
-            self.error = 'Comando Invalido'
-            error = "92 "
-        elif (er & 0x58) == 0x58:  # No hay asignadas  directivas
-            self.error = 'No hay asignadas  directivas'
-            error = "88 "
-        elif (er & 0x54) == 0x54:  # Tasa Invalida
-            self.error = 'Tasa Invalida'
-            error = "84 "
-        elif (er & 0x50) == 0x50:  # Comando Invalido/Valor Invalido
-            self.error = 'Comando Invalido/Valor Invalido'
-            error = "80 "
-        elif (er & 0x43) == 0x43:  # Fin en la entrega de papel y error mec�nico
-            self.error = 'Fin en la entrega de papel y error mec�nico'
-            error = "3  "
-        elif (er & 0x42) == 0x42:  # Error de indole mecanico en la entrega de papel
-            self.error = 'Error de indole mecanico en la entrega de papel'
-            error = "2  "
-        elif (er & 0x41) == 0x41:  # Fin en la entrega de papel
-            self.error = 'Fin en la entrega de papel'
-            error = "1  "
-        elif (er & 0x40) == 0x40:  # Sin error
-            self.error = 'Sin error'
-            error = "0  "
-
-        if (st_aux & 0x04) == 0x04:  # Buffer Completo
-            self.error = ''
-            error = "112 "
-        elif er == 128:     # Error en la comunicacion
-            self.error = 'CTS en falso'
-            error = "128 "
-        elif er == 137:     # No hay respuesta
-            self.error = 'No hay respuesta'
-            error = "137 "
-        elif er == 144:     # Error LRC
-            self.error = 'Error LRC'
-            error = "144 "
-        elif er == 114:
-            self.error = 'Impresora no responde o ocupada'
-            error = "114 "
-        return status+"   " + error+"   " + self.error
-
 
 class FPPrinterController:
+    '''Default printer controller'''
+
     def __init__(self):
         self.printer = FPPrinter()
 
@@ -414,11 +240,15 @@ class FPPrinterController:
         try:
             resp = self.printer.OpenFpctrl(**kwargs)
             if not resp:
-                raise Exception('Impresora no Conectada o Error Accediendo al Puerto')
+                raise Exception(
+                    'Impresora no Conectada o Error Accediendo al Puerto')
         except Exception as e:
             raise e
         else:
             return 1
+
+    def is_open(self):
+        return self.printer.is_open()
 
     def close_port(self):
         resp = self.printer.CloseFpctrl()
@@ -436,5 +266,5 @@ class FPPrinterController:
         '''get the given state Sx'''
         return self.printer.getState(state)
 
-    def send_cmd(self, cmd):
-        return self.printer._States(cmd)
+    def send_cmd(self, *args, **kwargs):
+        return self.printer._States(*args, **kwargs)
