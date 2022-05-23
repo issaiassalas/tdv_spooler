@@ -29,6 +29,7 @@ def format_payments(invoice):
     
 
 def format_invoices(invoices):
+    print(invoices)
     return [
         {
             'ref_id': invoice.get('id'),

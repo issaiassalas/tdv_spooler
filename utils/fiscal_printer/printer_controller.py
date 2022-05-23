@@ -54,6 +54,9 @@ class PrinterController(object):
 
     @property
     def connected(self):
+        if self._model == 'FILE':
+            print('hohjfodsfdsjfosdjfoj')
+            return True
         return self.printer_controller.is_open()
 
     @property
@@ -61,11 +64,14 @@ class PrinterController(object):
         return model_selector(self._model, self.printer_controller)
 
     def try_connection(self):
-        self.printer_controller.open_port(
-            port=self._port,
-            baudrate=self._baudrate,
-            **DEFAULT_PORT
-        )
+        if self._model == 'FILE':
+            return True
+        else:
+            self.printer_controller.open_port(
+                port=self._port,
+                baudrate=self._baudrate,
+                **DEFAULT_PORT
+            )
 
     def close_connection(self):
         if self.connected:

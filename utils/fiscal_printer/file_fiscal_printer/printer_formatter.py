@@ -70,8 +70,8 @@ class FileFormatter(BaseFormatter):
         self.printer.SendCmd('NOTA 3:        ')
         self.printer.SendCmd('NOTA 4:        ')
         if reversed:
-            invoice_id = str(reversed)
-            invoice_id = '0'*(9-len(invoice_id)) + invoice_id
+            reversed = str(reversed)
+            reversed = '0'*(9-len(reversed)) + reversed
             self.printer.SendCmd(f'FACTURAAFECTADA:       {reversed}')
         self.printer.print_file(path=self.configuration.get('FACTURAS'))
 
@@ -206,24 +206,33 @@ class FileFormatter(BaseFormatter):
 
     def print_subtotal(self):
         sub_total = round(self.sub_total, 2)
-        self.printer.SendCmd('SUB-TOTAL:' + self.fixed_spaces(sub_total, 16))
-        self.printer.SendCmd('DESCUENTO:             0.0')
+        sub_total = self.fixed_spaces(sub_total, 15)
+        if len(sub_total.split('.')[1]) < 2:
+            sub_total += '0'
+        self.printer.SendCmd('SUB-TOTAL:' + sub_total)
+        self.printer.SendCmd('DESCUENTO:            0.00')
         total = self.db_invoice.amount_total
-        self.printer.SendCmd('TOTAL A PAGAR:' + self.fixed_spaces(total, 12))
+        total = self.fixed_spaces(total, 11)
+        if len(total.split('.')[1]) < 2:
+            total += '0'
+        self.printer.SendCmd('TOTAL A PAGAR:' + total)
 
     def process_payment(self, payments: list = []):
         total = sum([ payment.get('amount', 0) for payment in payments ])
-        self.printer.SendCmd('EFECTIVO:' + self.fixed_spaces(round(total, 2), 17))
-        self.printer.SendCmd('CHEQUES:               0.0')
-        self.printer.SendCmd('TARJ/DEBITO:           0.0')
-        self.printer.SendCmd('TARJ/CREDITO:          0.0')
-        self.printer.SendCmd('Tranf en Bs:           0.0')
-        self.printer.SendCmd('Transf en USD:         0.0')
-        self.printer.SendCmd('Transf EURO:           0.0')
-        self.printer.SendCmd('Efect USD:             0.0')
-        self.printer.SendCmd('Efect EURO:            0.0')
-        self.printer.SendCmd('Pago movil:            0.0')
-        self.printer.SendCmd('CREDITO:               0.0')
+        total_amount = self.fixed_spaces(round(total, 2), 16)
+        if len(total_amount.split('.')[1]) < 2:
+            total_amount += '0'
+        self.printer.SendCmd('EFECTIVO:' + total_amount)
+        self.printer.SendCmd('CHEQUES:              0.00')
+        self.printer.SendCmd('TARJ/DEBITO:          0.00')
+        self.printer.SendCmd('TARJ/CREDITO:         0.00')
+        self.printer.SendCmd('Tranf en Bs:          0.00')
+        self.printer.SendCmd('Transf en USD:        0.00')
+        self.printer.SendCmd('Transf EURO:          0.00')
+        self.printer.SendCmd('Efect USD:            0.00')
+        self.printer.SendCmd('Efect EURO:           0.00')
+        self.printer.SendCmd('Pago movil:           0.00')
+        self.printer.SendCmd('CREDITO:              0.00')
         # if not payments or len(payments) == 0:
         #     self.cancel_current()
         # else:

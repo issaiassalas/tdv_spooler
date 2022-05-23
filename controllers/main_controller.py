@@ -137,6 +137,8 @@ class MainWindow(QMainWindow, Ui_main_window.Ui_MainWindow):
                     port = self._printer._port
                     self._outputText.append(f'La impresora ha sido conectada en el puerto {port}')
                     self.connect_button.setText('DESCONECTAR')
+            elif self.printer_model.currentText() == 'FILE':
+                self._outputText.append('En modo de generacion de archivos...')
             else:
                 window_message = "Seguro que desea terminar la conexion?"
                 reply = QMessageBox.question(self, 'Terminar', window_message,
