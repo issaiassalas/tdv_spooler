@@ -5,6 +5,8 @@ from views import Ui_main_window
 from utils import get_available_ports, PrinterController, QPrinterController
 from utils import QERPConnection
 from db import *
+import json
+import os
 
 class MainWindow(QMainWindow, Ui_main_window.Ui_MainWindow):
     start_connection = pyqtSignal()
@@ -16,6 +18,7 @@ class MainWindow(QMainWindow, Ui_main_window.Ui_MainWindow):
         self.setWindowFlags(Qt.FramelessWindowHint)
         self.menu_opened = True
         self._ports = []
+        self._spooler_config = {}
         self.configuration = None
         self._outputText = []
         self._printer = None
@@ -42,14 +45,26 @@ class MainWindow(QMainWindow, Ui_main_window.Ui_MainWindow):
         tray_menu.addAction(hide_action)
         self.tray_icon.setContextMenu(tray_menu)
         self.tray_icon.show()
+        self.check_user_config()
         self.set_main_user()
 
         self.mutex = QMutex()
+
+        if self.spooler_config.get('auto_connect'):
+            self.printer_action_setup()
 
     @property
     def is_printer_connected(self):
         if self._printer:
             return self._printer.connected
+
+    @property
+    def spooler_config(self):
+        return self._spooler_config
+    
+    @spooler_config.setter
+    def spooler_config(self, config):
+        self._spooler_config = config
 
     ### TIMER OPTIONS ###
     def start_connection_timer(self):
@@ -111,10 +126,10 @@ class MainWindow(QMainWindow, Ui_main_window.Ui_MainWindow):
             if not self._erp_connection:
                 self._outputText.append('Intentando conexion...')
                 self._erp_connection = QERPConnection(
-                    url = self.odoo_url.text(),
-                    db = self.odoo_db_name.text(),
-                    username = self.odoo_user.text(),
-                    password = self.odoo_password.text(),
+                    url = self.spooler_config.get('url') or self.odoo_url.text(),
+                    db = self.spooler_config.get('odoo_db_name') or self.odoo_db_name.text(),
+                    username = self.spooler_config.get('username') or self.odoo_user.text(),
+                    password = self.spooler_config.get('api_key') or self.odoo_password.text(),
                     parent = self
                 )
                 if not self._erp_connection.authenticated():
@@ -123,9 +138,9 @@ class MainWindow(QMainWindow, Ui_main_window.Ui_MainWindow):
                     self.append_to_output('Autenticado con exito')
             if not self._printer:
                 self._printer = PrinterController(
-                    port = self.ports.currentText(),
-                    baudrate = self.baud_rate.currentText(),
-                    model = self.printer_model.currentText()
+                    port = self.spooler_config.get('port') or self.ports.currentText(),
+                    baudrate = self.spooler_config.get('baud_rate') or self.baud_rate.currentText(),
+                    model = self.spooler_config.get('model') or self.printer_model.currentText()
                 )
 
             if not self._printer.connected:
@@ -191,6 +206,7 @@ class MainWindow(QMainWindow, Ui_main_window.Ui_MainWindow):
             self.outputText.append(text)
 
     ### PROGRAMATION ###
+
     def print_x_report(self):
         if self.is_printer_connected:
             pcontroller = QPrinterController(
@@ -228,6 +244,17 @@ class MainWindow(QMainWindow, Ui_main_window.Ui_MainWindow):
         self._thread_pool[pcontroller.hash] = pcontroller
         self.mutex.unlock()
 
+    
+    def check_user_config(self):
+        if not os.path.exists('user_config.json'):
+            with open('user_config.json', 'w') as f:
+                f.write(
+                    json.dumps({})
+                )
+        else:
+            with open('user_config.json', 'r') as f:
+                self.spooler_config = json.loads(f.read())
+
     def set_main_user(self):
         if db_user:
             self.odoo_url.setText(db_user.url),
@@ -247,6 +274,19 @@ class MainWindow(QMainWindow, Ui_main_window.Ui_MainWindow):
                 api_key=self.odoo_password.text(),
                 odoo_db_name=self.odoo_db_name.text()
             )
+            with open('user_config.json', 'w') as f:
+                f.write(
+                    json.dumps({
+                        'model': self.printer_model.currentText(),
+                        'port': self.ports.currentText(),
+                        'baud_rate': self.baud_rate.currentText(),
+                        'url': self.odoo_url.text(),
+                        'odoo_db_name': self.odoo_db_name.text(),
+                        'username': self.odoo_user.text(),
+                        'api_key': self.odoo_password.text(),
+                        'auto_connect': self.auto_connect_check.checkState(),
+                    })
+                )
         else:
             print('todos los campos son requeridos')
 

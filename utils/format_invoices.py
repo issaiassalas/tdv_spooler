@@ -17,6 +17,7 @@ def format_payments(invoice):
         {
             'id': payment.get('id'),
             'amount': payment.get('amount'),
+            'type': payment.get('fp_type')
         } for payment in valid_payments
     ]
 

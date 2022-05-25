@@ -685,25 +685,67 @@ p, li { white-space: pre-wrap; }
                     <property name="spacing">
                      <number>0</number>
                     </property>
-                    <item row="0" column="1">
-                     <widget class="QComboBox" name="printer_model">
+                    <item row="1" column="0">
+                     <widget class="QLabel" name="label_11">
+                      <property name="text">
+                       <string>Puerto a Conectar</string>
+                      </property>
+                     </widget>
+                    </item>
+                    <item row="3" column="1">
+                     <widget class="QComboBox" name="connection_type">
                       <item>
                        <property name="text">
-                        <string>HKA</string>
+                        <string>Servidor</string>
                        </property>
                       </item>
+                      <item>
+                       <property name="text">
+                        <string>Cliente</string>
+                       </property>
+                      </item>
+                     </widget>
+                    </item>
+                    <item row="4" column="1">
+                     <widget class="QLineEdit" name="odoo_url">
+                      <property name="placeholderText">
+                       <string>http://localhost:8069</string>
+                      </property>
+                      <property name="clearButtonEnabled">
+                       <bool>true</bool>
+                      </property>
+                     </widget>
+                    </item>
+                    <item row="5" column="0">
+                     <widget class="QLabel" name="label_17">
+                      <property name="text">
+                       <string>Odoo DB</string>
+                      </property>
+                     </widget>
+                    </item>
+                    <item row="0" column="0">
+                     <widget class="QLabel" name="label_10">
+                      <property name="text">
+                       <string>Modelo de impresora</string>
+                      </property>
+                     </widget>
+                    </item>
+                    <item row="2" column="1">
+                     <widget class="QComboBox" name="baud_rate">
+                      <item>
+                       <property name="text">
+                        <string>9600</string>
+                       </property>
+                      </item>
+                     </widget>
+                    </item>
+                    <item row="0" column="1">
+                     <widget class="QComboBox" name="printer_model">
                       <item>
                        <property name="text">
                         <string>FILE</string>
                        </property>
                       </item>
-                     </widget>
-                    </item>
-                    <item row="4" column="0">
-                     <widget class="QLabel" name="label_14">
-                      <property name="text">
-                       <string>URL ODOO</string>
-                      </property>
                      </widget>
                     </item>
                     <item row="3" column="0">
@@ -713,10 +755,34 @@ p, li { white-space: pre-wrap; }
                       </property>
                      </widget>
                     </item>
+                    <item row="1" column="1">
+                     <widget class="QComboBox" name="ports"/>
+                    </item>
+                    <item row="6" column="0">
+                     <widget class="QLabel" name="label_15">
+                      <property name="text">
+                       <string>Usuario</string>
+                      </property>
+                     </widget>
+                    </item>
+                    <item row="7" column="0">
+                     <widget class="QLabel" name="label_16">
+                      <property name="text">
+                       <string>APIKEY</string>
+                      </property>
+                     </widget>
+                    </item>
                     <item row="2" column="0">
                      <widget class="QLabel" name="label_12">
                       <property name="text">
                        <string>BaudRate</string>
+                      </property>
+                     </widget>
+                    </item>
+                    <item row="4" column="0">
+                     <widget class="QLabel" name="label_14">
+                      <property name="text">
+                       <string>URL ODOO</string>
                       </property>
                      </widget>
                     </item>
@@ -736,68 +802,14 @@ p, li { white-space: pre-wrap; }
                       </property>
                      </widget>
                     </item>
-                    <item row="1" column="1">
-                     <widget class="QComboBox" name="ports"/>
-                    </item>
-                    <item row="4" column="1">
-                     <widget class="QLineEdit" name="odoo_url">
+                    <item row="5" column="1">
+                     <widget class="QLineEdit" name="odoo_db_name">
                       <property name="placeholderText">
-                       <string>http://localhost:8069</string>
+                       <string>odoo</string>
                       </property>
                       <property name="clearButtonEnabled">
                        <bool>true</bool>
                       </property>
-                     </widget>
-                    </item>
-                    <item row="6" column="0">
-                     <widget class="QLabel" name="label_15">
-                      <property name="text">
-                       <string>Usuario</string>
-                      </property>
-                     </widget>
-                    </item>
-                    <item row="7" column="0">
-                     <widget class="QLabel" name="label_16">
-                      <property name="text">
-                       <string>APIKEY</string>
-                      </property>
-                     </widget>
-                    </item>
-                    <item row="1" column="0">
-                     <widget class="QLabel" name="label_11">
-                      <property name="text">
-                       <string>Puerto a Conectar</string>
-                      </property>
-                     </widget>
-                    </item>
-                    <item row="0" column="0">
-                     <widget class="QLabel" name="label_10">
-                      <property name="text">
-                       <string>Modelo de impresora</string>
-                      </property>
-                     </widget>
-                    </item>
-                    <item row="3" column="1">
-                     <widget class="QComboBox" name="connection_type">
-                      <item>
-                       <property name="text">
-                        <string>Servidor</string>
-                       </property>
-                      </item>
-                      <item>
-                       <property name="text">
-                        <string>Cliente</string>
-                       </property>
-                      </item>
-                     </widget>
-                    </item>
-                    <item row="2" column="1">
-                     <widget class="QComboBox" name="baud_rate">
-                      <item>
-                       <property name="text">
-                        <string>9600</string>
-                       </property>
-                      </item>
                      </widget>
                     </item>
                     <item row="6" column="1">
@@ -810,20 +822,10 @@ p, li { white-space: pre-wrap; }
                       </property>
                      </widget>
                     </item>
-                    <item row="5" column="0">
-                     <widget class="QLabel" name="label_17">
+                    <item row="8" column="0" colspan="2">
+                     <widget class="QCheckBox" name="auto_connect_check">
                       <property name="text">
-                       <string>Odoo DB</string>
-                      </property>
-                     </widget>
-                    </item>
-                    <item row="5" column="1">
-                     <widget class="QLineEdit" name="odoo_db_name">
-                      <property name="placeholderText">
-                       <string>odoo</string>
-                      </property>
-                      <property name="clearButtonEnabled">
-                       <bool>true</bool>
+                       <string>CONECTAR AUTOMATICAMENTE</string>
                       </property>
                      </widget>
                     </item>

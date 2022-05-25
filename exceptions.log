@@ -1,0 +1,8 @@
+Traceback (most recent call last):
+  File "c:/Users/Developmet/Documents/projects/odoo_fiscal_printer/main.py", line 8, in <module>
+    ui = main_controller.MainWindow()
+  File "c:\Users\Developmet\Documents\projects\odoo_fiscal_printer\controllers\main_controller.py", line 26, in __init__
+    self.set_output_timer()
+  File "c:\Users\Developmet\Documents\projects\odoo_fiscal_printer\controllers\main_controller.py", line 62, in set_output_timer
+    raise Exception('fdsfg')
+Exception: fdsfg

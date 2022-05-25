@@ -36,7 +36,6 @@ class FileFormatter(BaseFormatter):
         self.db_invoice = None
         self.sub_total = 0
         self.configuration = self.build_config_file()
-        print(self.configuration)
 
     def build_config_file(self):
         if not os.path.exists(self.files_config):
@@ -153,10 +152,26 @@ class FileFormatter(BaseFormatter):
             }
 
     def print_client_data(self, client={}, credit_note={}):
-        cr = client.get('ced_rif')[:12]
-        name = client.get('name')[:30]
-        address = client.get('street')[:33]
-        phone = client.get('phone')[:34]
+        cr = client.get('ced_rif', 'J012345678')
+        if type(cr) == str:
+            cr = cr[:12]
+        else:
+            cr = 'J012345678'
+        name = client.get('name', 'Cliente final')
+        if type(name) == str:
+            name = name[:30]
+        else:
+            name = 'Cliente final'
+        address = client.get('street', 'xxxxxxxx')
+        if type(address) == str:
+            address = address[:33]
+        else:
+            address = 'xxxxxxxxxxx'
+        phone = client.get('phone', '0412-12345879')
+        if type(phone) == str:
+            phone = phone[:34]
+        else:
+            phone = '0412-12345879'
 
         self.printer.SendCmd(f'CLIENTE:         {name}')
         self.printer.SendCmd(f'RIF:             {cr}')
@@ -217,22 +232,57 @@ class FileFormatter(BaseFormatter):
             total += '0'
         self.printer.SendCmd('TOTAL A PAGAR:' + total)
 
+    def format_payment(self, payments, type, spaces):
+        payment = float(sum(
+            payment.get('amount', 0.0)
+            for payment in list(
+                filter(
+                    lambda x: x.get('type') == type,
+                    payments
+                )
+            )
+        ))
+        entire, decimal = str(round(payment, 2)).split('.')
+        if len(entire) < spaces:
+            entire = ' '*(spaces-len(entire)) + entire
+        if len(decimal) < 2:
+            decimal += '0'
+        return f'{entire}.{decimal}'
+
     def process_payment(self, payments: list = []):
-        total = sum([ payment.get('amount', 0) for payment in payments ])
-        total_amount = self.fixed_spaces(round(total, 2), 16)
-        if len(total_amount.split('.')[1]) < 2:
-            total_amount += '0'
-        self.printer.SendCmd('EFECTIVO:' + total_amount)
-        self.printer.SendCmd('CHEQUES:              0.00')
-        self.printer.SendCmd('TARJ/DEBITO:          0.00')
-        self.printer.SendCmd('TARJ/CREDITO:         0.00')
-        self.printer.SendCmd('Tranf en Bs:          0.00')
-        self.printer.SendCmd('Transf en USD:        0.00')
-        self.printer.SendCmd('Transf EURO:          0.00')
-        self.printer.SendCmd('Efect USD:            0.00')
-        self.printer.SendCmd('Efect EURO:           0.00')
-        self.printer.SendCmd('Pago movil:           0.00')
-        self.printer.SendCmd('CREDITO:              0.00')
+        self.printer.SendCmd('EFECTIVO:' + self.format_payment(
+            payments, 'm1', 14
+        ))
+        self.printer.SendCmd('CHEQUES:' + self.format_payment(
+            payments, 'm2', 15
+        ))
+        self.printer.SendCmd('TARJ/DEBITO:' + self.format_payment(
+            payments, 'm3', 11
+        ))
+        self.printer.SendCmd('TARJ/CREDITO:' + self.format_payment(
+            payments, 'm4', 10
+        ))
+        self.printer.SendCmd('Tranf en Bs:' + self.format_payment(
+            payments, 'm5', 11
+        ))
+        self.printer.SendCmd('Transf en USD:' + self.format_payment(
+            payments, 'm6', 9
+        ))
+        self.printer.SendCmd('Transf EURO:' + self.format_payment(
+            payments, 'm7', 11
+        ))
+        self.printer.SendCmd('Efect USD:' + self.format_payment(
+            payments, 'm8', 13
+        ))
+        self.printer.SendCmd('Efect EURO:' + self.format_payment(
+            payments, 'm9', 12
+        ))
+        self.printer.SendCmd('Pago movil:' + self.format_payment(
+            payments, 'm10', 12
+        ))
+        self.printer.SendCmd('CREDITO:' + self.format_payment(
+            payments, 'm11', 15
+        ))
         # if not payments or len(payments) == 0:
         #     self.cancel_current()
         # else:
